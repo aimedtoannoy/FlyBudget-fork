@@ -4,6 +4,10 @@ Keep custom business logic in `server/src/features/<feature-name>/` and
 `client/src/features/<feature-name>/`. Only small integration points belong in
 upstream directories (existing Plaid services, schema, register components).
 
+## Money Lent / IOUs
+
+See [personal-loans.md](./personal-loans.md) for open-ended loans, installments, payment history and guarded posted-deposit links.
+
 ## Budget starting point
 
 See [budget-start.md](./budget-start.md) for the budget-start month and opening

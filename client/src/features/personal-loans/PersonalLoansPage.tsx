@@ -2,7 +2,6 @@ import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { AlertCircle, CalendarClock, HandCoins, Plus, Pencil, Trash2, CheckCircle2 } from 'lucide-react';
-import { apiFetch } from '../../api/client';
 import { useCanSave } from '../../hooks/useConnection';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
