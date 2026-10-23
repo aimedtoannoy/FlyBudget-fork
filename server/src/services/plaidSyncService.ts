@@ -2,7 +2,13 @@ import { db } from '../db/index.js';
 import { plaidItems, plaidAccountMappings, transactions, accounts } from '../db/schema.js';
 import { logError } from '../utils/log.js';
 import { eq, and, inArray } from 'drizzle-orm';
-import { syncTransactions, getCurrentPendingTransactions, plaidAmountToCents, plaidBalanceToCents, type PlaidSyncResult } from './plaidService.js';
+import {
+  syncTransactions,
+  getCurrentPendingTransactions,
+  plaidAmountToCents,
+  plaidBalanceToCents,
+  type PlaidSyncResult,
+} from './plaidService.js';
 import { promotePendingPlaidTransaction } from '../features/pending-transactions/plaidPending.js';
 import { buildRuleContext, insertNewTransaction, loadRules } from './ruleService.js';
 import { currencyContext, refreshMainAmounts } from './mainAmountService.js';
