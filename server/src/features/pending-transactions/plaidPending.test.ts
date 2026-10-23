@@ -10,9 +10,7 @@ beforeAll(() => {
   migrate(db, { migrationsFolder: 'src/db/migrations' });
   db.insert(accounts).values({ id: 'test-bank', name: 'Checking', type: 'checking' }).run();
   db.insert(categoryGroups).values({ id: 'test-group', name: 'Shopping' }).run();
-  db.insert(categories)
-    .values({ id: 'test-cat', name: 'Groceries', groupId: 'test-group' })
-    .run();
+  db.insert(categories).values({ id: 'test-cat', name: 'Groceries', groupId: 'test-group' }).run();
 });
 
 describe('Plaid pending-to-posted matching', () => {
