@@ -137,9 +137,9 @@ describe('opt-in budget starting point', () => {
   });
 
   it('rolls forward only income and allocations after October begins', async () => {
-    expect(
-      (await call('PUT', '/2026-10/budget-groceries', { budgeted: 100_000 })).status,
-    ).toBe(200);
+    expect((await call('PUT', '/2026-10/budget-groceries', { budgeted: 100_000 })).status).toBe(
+      200,
+    );
     const november = (await call('GET', '/2026-11/summary')).body;
     expect(november).toMatchObject({
       income: 180_000,

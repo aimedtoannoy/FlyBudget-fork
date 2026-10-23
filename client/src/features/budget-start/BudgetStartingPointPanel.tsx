@@ -77,8 +77,8 @@ export function BudgetStartingPointPanel({ selectedMonth }: { selectedMonth: str
         <form onSubmit={submit} className="grid gap-3 border-t border-border-light px-4 py-3">
           <p className="text-xs text-text-secondary">
             Start your budget here without deleting older bank transactions or changing account
-            balances. Enter only money genuinely unassigned as of the start of the month;
-            income received during that month is counted separately.
+            balances. Enter only money genuinely unassigned as of the start of the month; income
+            received during that month is counted separately.
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="grid gap-1 text-sm text-text">
@@ -108,8 +108,8 @@ export function BudgetStartingPointPanel({ selectedMonth }: { selectedMonth: str
             </label>
           </div>
           <p className="text-xs text-text-tertiary">
-            This is not a bank balance adjustment. Funds already reserved for unpaid bills should
-            be assigned to their budget categories so they are not treated as free spending money.
+            This is not a bank balance adjustment. Funds already reserved for unpaid bills should be
+            assigned to their budget categories so they are not treated as free spending money.
           </p>
           {(error || save.error) && (
             <p role="alert" className="text-xs text-negative">
@@ -128,9 +128,7 @@ export function BudgetStartingPointPanel({ selectedMonth }: { selectedMonth: str
               <button
                 type="button"
                 disabled={!canSave || save.isPending}
-                onClick={() =>
-                  save.mutate({ startMonth: null, openingFunds: 0 }, saveOptions)
-                }
+                onClick={() => save.mutate({ startMonth: null, openingFunds: 0 }, saveOptions)}
                 className="rounded-md border border-border px-3 py-2 text-sm text-text-secondary disabled:opacity-50"
               >
                 Disable starting point
