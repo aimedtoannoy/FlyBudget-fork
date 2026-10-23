@@ -534,3 +534,36 @@ export const exchangeRates = sqliteTable(
   },
   (table) => [index('exchange_rates_pair_date_idx').on(table.base, table.quote, table.date)],
 );
+
+/** Standalone IOUs: never create or modify actual bank transactions. */
+export const personalLoans = sqliteTable('personal_loans', {
+  id: text('id').primaryKey(),
+  borrower: encryptedText('borrower').notNull(),
+  principal: integer('principal').notNull(),
+  lentOn: text('lent_on').notNull(),
+  repaymentMode: text('repayment_mode').notNull().default('open'),
+  firstDueOn: text('first_due_on'),
+  cadence: text('cadence'),
+  installmentAmount: integer('installment_amount'),
+  remindersEnabled: integer('reminders_enabled').notNull().default(0),
+  notes: encryptedText('notes'),
+  createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+  updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
+});
+
+export const personalLoanRepayments = sqliteTable(
+  'personal_loan_repayments',
+  {
+    id: text('id').primaryKey(),
+    loanId: text('loan_id').notNull().references(() => personalLoans.id, { onDelete: 'cascade' }),
+    paidOn: text('paid_on').notNull(),
+    amount: integer('amount').notNull(),
+    notes: encryptedText('notes'),
+    transactionId: text('transaction_id').references(() => transactions.id, { onDelete: 'set null' }),
+    createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index('personal_loan_repayments_loan_idx').on(table.loanId),
+    uniqueIndex('personal_loan_repayments_transaction_idx').on(table.transactionId),
+  ],
+);
