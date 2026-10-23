@@ -17,6 +17,7 @@ import ReconcilePage from './pages/ReconcilePage';
 import RecurringTransactionsPage from './pages/RecurringTransactions';
 import SettingsPage from './pages/Settings';
 import GoalsPage from './pages/Goals';
+import PersonalLoansPage from './features/personal-loans/PersonalLoansPage';
 import CashFlowPage from './pages/CashFlow';
 import CategoryDetailPage from './pages/CategoryDetail';
 
@@ -50,6 +51,7 @@ export default function App() {
             <Route path="/rules" element={<RulesPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/goals" element={<GoalsPage />} />
+          <Route path="/money-lent" element={<PersonalLoansPage />} />
           </Route>
         </Routes>
       </Router>

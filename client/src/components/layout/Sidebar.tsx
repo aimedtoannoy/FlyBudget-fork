@@ -15,6 +15,7 @@ import {
   Pin,
   X,
   CircleHelp,
+  HandCoins,
 } from 'lucide-react';
 import { usePreferencesStore } from '../../store/preferencesStore';
 import { SidebarAccountList } from './SidebarAccountList';
@@ -199,6 +200,12 @@ function SidebarContent({ isExpanded, onClose }: { isExpanded: boolean; onClose?
           collapsed={!isExpanded}
         />
         <NavItem to="/goals" icon={<Target size={18} />} label="Goals" collapsed={!isExpanded} />
+        <NavItem
+          to="/money-lent"
+          icon={<HandCoins size={18} />}
+          label="Money Lent"
+          collapsed={!isExpanded}
+        />
       </nav>
 
       {/* Account list */}
