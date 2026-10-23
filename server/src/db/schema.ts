@@ -86,6 +86,8 @@ export const transactions = sqliteTable(
     categoryId: text('category_id').references(() => categories.id, { onDelete: 'set null' }),
     notes: text('notes'),
     reconciled: integer('reconciled').notNull().default(0),
+    /** 1 until Plaid reports that this bank authorization has posted. */
+    pending: integer('pending').notNull().default(0),
     transferTransactionId: text('transfer_transaction_id'),
     isParent: integer('is_parent').notNull().default(0),
     parentTransactionId: text('parent_transaction_id'),
@@ -368,6 +370,8 @@ export const plaidItems = sqliteTable('plaid_items', {
   institutionName: text('institution_name').notNull(),
   accessToken: encryptedText('access_token').notNull(),
   cursor: text('cursor'),
+  /** One-time catch-up for pending transactions discarded by the original sync. */
+  pendingBackfilled: integer('pending_backfilled').notNull().default(0),
   lastSyncedAt: text('last_synced_at'),
   syncStatus: text('sync_status').notNull().default('good'),
   syncError: text('sync_error'),

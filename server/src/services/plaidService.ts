@@ -216,6 +216,7 @@ export interface PlaidSyncResult {
     merchantName: string | null;
     category: string[];
     pending: boolean;
+    pendingTransactionId: string | null;
     currency: string | null;
   }>;
   modified: Array<{
@@ -225,6 +226,7 @@ export interface PlaidSyncResult {
     amount: number;
     name: string;
     merchantName: string | null;
+    pending: boolean;
     currency: string | null;
   }>;
   removed: Array<{ transactionId: string }>;
@@ -257,7 +259,6 @@ export async function syncTransactions(
     const data = response.data;
 
     for (const t of data.added) {
-      if (t.pending) continue;
       allAdded.push({
         transactionId: t.transaction_id,
         accountId: t.account_id,
@@ -267,12 +268,12 @@ export async function syncTransactions(
         merchantName: t.merchant_name ?? null,
         category: t.category ?? [],
         pending: t.pending,
+        pendingTransactionId: t.pending_transaction_id ?? null,
         currency: t.iso_currency_code ?? null,
       });
     }
 
     for (const t of data.modified) {
-      if (t.pending) continue;
       allModified.push({
         transactionId: t.transaction_id,
         accountId: t.account_id,
@@ -280,6 +281,7 @@ export async function syncTransactions(
         amount: t.amount,
         name: t.name,
         merchantName: t.merchant_name ?? null,
+        pending: t.pending,
         currency: t.iso_currency_code ?? null,
       });
     }
@@ -311,6 +313,52 @@ export async function syncTransactions(
     nextCursor,
     accountBalances,
   };
+}
+
+/**
+ * On first upgrade, retrieve pending authorizations discarded by old Plaid cursors.
+ * Do not replay the entire transaction history or rewrite the persisted sync cursor.
+ * The normal Plaid /transactions/get endpoint may lag the bank's live app.
+ */
+export async function getCurrentPendingTransactions(
+  accessToken: string,
+): Promise<PlaidSyncResult['added']> {
+  const client = getPlaidClient();
+  const now = new Date();
+  const endDate = now.toISOString().slice(0, 10);
+  const startDate = new Date(now.getTime() - 30 * 86_400_000).toISOString().slice(0, 10);
+  const pending: PlaidSyncResult['added'] = [];
+  let offset = 0;
+  const count = 500;
+  let total = 0;
+
+  do {
+    const { data } = await client.transactionsGet({
+      access_token: accessToken,
+      start_date: startDate,
+      end_date: endDate,
+      options: { count, offset },
+    });
+    total = data.total_transactions;
+    for (const t of data.transactions) {
+      if (!t.pending) continue;
+      pending.push({
+        transactionId: t.transaction_id,
+        accountId: t.account_id,
+        date: t.date,
+        amount: t.amount,
+        name: t.name,
+        merchantName: t.merchant_name ?? null,
+        category: t.category ?? [],
+        pending: true,
+        pendingTransactionId: t.pending_transaction_id ?? null,
+        currency: t.iso_currency_code ?? null,
+      });
+    }
+    offset += data.transactions.length;
+    if (data.transactions.length === 0) break;
+  } while (offset < total);
+  return pending;
 }
 
 /** Plaid's amount (positive = money out) in minor units of a currency with `minor` decimals */
