@@ -87,7 +87,7 @@ export async function syncPlaidItem(plaidItemId: string): Promise<SyncResult> {
           postedPlaidId: tx.transactionId,
           date: tx.date,
           amount: plaidAmountToCents(tx.amount, minorOf(mapping)),
-          importedPayee: tx.name || tx.merchantName || null,
+          importedPayee: tx.name || tx.merchantName || '',
         })
       ) {
         result.modified++;
