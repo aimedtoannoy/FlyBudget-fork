@@ -10,7 +10,5 @@ export function effectiveStartMonth(
   viewedMonth: string,
   configuredStartMonth: string | null,
 ): string | null {
-  return configuredStartMonth && viewedMonth >= configuredStartMonth
-    ? configuredStartMonth
-    : null;
+  return configuredStartMonth && viewedMonth >= configuredStartMonth ? configuredStartMonth : null;
 }

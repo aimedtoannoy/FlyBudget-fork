@@ -75,7 +75,12 @@ budgetRouter.get('/:month', (req, res) => {
       total: sql<number>`coalesce(sum(${budgetMonths.budgeted}), 0)`,
     })
     .from(budgetMonths)
-    .where(and(lt(budgetMonths.month, month), startMonth ? gte(budgetMonths.month, startMonth) : undefined))
+    .where(
+      and(
+        lt(budgetMonths.month, month),
+        startMonth ? gte(budgetMonths.month, startMonth) : undefined,
+      ),
+    )
     .groupBy(budgetMonths.categoryId)
     .all();
 

@@ -115,10 +115,12 @@ describe('opt-in budget starting point', () => {
     const countBefore = db.select().from(transactions).all().length;
     const accountBefore = db.select().from(accounts).get();
     expect(
-      (await call('PUT', '/settings', {
-        startMonth: '2026-10',
-        openingFunds: 45_000,
-      })).status,
+      (
+        await call('PUT', '/settings', {
+          startMonth: '2026-10',
+          openingFunds: 45_000,
+        })
+      ).status,
     ).toBe(200);
 
     const october = (await call('GET', '/2026-10/summary')).body;

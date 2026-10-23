@@ -3,12 +3,7 @@ import { format, parseISO } from 'date-fns';
 import { CalendarRange, ChevronDown, ChevronUp } from 'lucide-react';
 import { useBudgetStartingPoint, useSaveBudgetStartingPoint } from '../../hooks/useBudget';
 import { useCanSave } from '../../hooks/useConnection';
-import {
-  centsToInput,
-  formatCurrency,
-  isUnreadableAmount,
-  parseCents,
-} from '../../utils/currency';
+import { centsToInput, formatCurrency, isUnreadableAmount, parseCents } from '../../utils/currency';
 
 /** User-entered starting balance for the *budget*, not any connected bank account. */
 export function BudgetStartingPointPanel({ selectedMonth }: { selectedMonth: string }) {
@@ -42,10 +37,13 @@ export function BudgetStartingPointPanel({ selectedMonth }: { selectedMonth: str
       return;
     }
     setError('');
-    save.mutate({ startMonth: month, openingFunds }, {
-      onSuccess: () => setExpanded(false),
-      onError: (reason) => setError(reason.message),
-    });
+    save.mutate(
+      { startMonth: month, openingFunds },
+      {
+        onSuccess: () => setExpanded(false),
+        onError: (reason) => setError(reason.message),
+      },
+    );
   }
 
   const beforeStart = !!point?.startMonth && selectedMonth < point.startMonth;
@@ -130,10 +128,13 @@ export function BudgetStartingPointPanel({ selectedMonth }: { selectedMonth: str
                 type="button"
                 disabled={!canSave || save.isPending}
                 onClick={() =>
-                  save.mutate({ startMonth: null, openingFunds: 0 }, {
-                    onSuccess: () => setExpanded(false),
-                    onError: (reason) => setError(reason.message),
-                  })
+                  save.mutate(
+                    { startMonth: null, openingFunds: 0 },
+                    {
+                      onSuccess: () => setExpanded(false),
+                      onError: (reason) => setError(reason.message),
+                    },
+                  )
                 }
                 className="rounded-md border border-border px-3 py-2 text-sm text-text-secondary disabled:opacity-50"
               >
