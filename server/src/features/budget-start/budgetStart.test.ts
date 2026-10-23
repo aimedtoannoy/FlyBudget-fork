@@ -114,14 +114,11 @@ describe('opt-in budget starting point', () => {
   it('starts October with only explicitly unallocated funds and October paychecks', async () => {
     const countBefore = db.select().from(transactions).all().length;
     const accountBefore = db.select().from(accounts).get();
-    expect(
-      (
-        await call('PUT', '/settings', {
-          startMonth: '2026-10',
-          openingFunds: 45_000,
-        })
-      ).status,
-    ).toBe(200);
+    const saved = await call('PUT', '/settings', {
+      startMonth: '2026-10',
+      openingFunds: 45_000,
+    });
+    expect(saved.status).toBe(200);
 
     const october = (await call('GET', '/2026-10/summary')).body;
     expect(october).toMatchObject({

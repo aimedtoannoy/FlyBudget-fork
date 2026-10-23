@@ -21,6 +21,7 @@ env:
 
 jobs:
   server:
+    needs: [electron]
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -41,6 +42,7 @@ jobs:
       - run: npm test
 
   client:
+    needs: [electron]
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -70,11 +72,19 @@ jobs:
       - run: npm audit signatures
       - run: npx tsc -p electron/tsconfig.json --noEmit
       # The whole repository follows .prettierrc (fix with `npm run format`)
-      - run: npm run format:check
+      - name: Format check (fail fast before expensive test jobs)
+        run: |
+          if ! npm run format:check; then
+            echo '::error::Formatting does not match Prettier. Suggested exact changes:'
+            npx prettier --write client/src/features/budget-start/BudgetStartingPointPanel.tsx server/src/features/budget-start/budgetStart.test.ts
+            git diff -- client/src/features/budget-start/BudgetStartingPointPanel.tsx server/src/features/budget-start/budgetStart.test.ts
+            exit 1
+          fi
 
   # End-to-end: the real app in a real browser (Playwright), against throwaway databases.
   # Covers the desktop-app setup and self-hosted server mode; see e2e/global-setup.ts.
   e2e:
+    needs: [electron]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -118,6 +128,7 @@ jobs:
           retention-days: 14
 
   website:
+    needs: [electron]
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -140,7 +151,7 @@ jobs:
     needs: [server, client, electron, e2e, website]
     runs-on: ubuntu-latest
     steps:
-      - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+      - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
         run: exit 1
       - run: echo "All checks passed"
 

@@ -14,6 +14,13 @@ export function BudgetStartingPointPanel({ selectedMonth }: { selectedMonth: str
   const [month, setMonth] = useState(selectedMonth);
   const [opening, setOpening] = useState('0.00');
   const [error, setError] = useState('');
+  const startingMonthLabel = point?.startMonth
+    ? format(parseISO(`${point.startMonth}-01`), 'MMMM yyyy')
+    : null;
+  const saveOptions = {
+    onSuccess: () => setExpanded(false),
+    onError: (reason: Error) => setError(reason.message),
+  };
 
   useEffect(() => {
     setMonth(point?.startMonth ?? selectedMonth);
@@ -37,13 +44,7 @@ export function BudgetStartingPointPanel({ selectedMonth }: { selectedMonth: str
       return;
     }
     setError('');
-    save.mutate(
-      { startMonth: month, openingFunds },
-      {
-        onSuccess: () => setExpanded(false),
-        onError: (reason) => setError(reason.message),
-      },
-    );
+    save.mutate({ startMonth: month, openingFunds }, saveOptions);
   }
 
   const beforeStart = !!point?.startMonth && selectedMonth < point.startMonth;
@@ -59,8 +60,8 @@ export function BudgetStartingPointPanel({ selectedMonth }: { selectedMonth: str
         <CalendarRange size={16} className="shrink-0 text-text-tertiary" />
         <span className="flex-1">
           <strong className="font-medium">Budget starting point:</strong>{' '}
-          {point?.startMonth
-            ? `${format(parseISO(`${point.startMonth}-01`), 'MMMM yyyy')} · ${formatCurrency(point.openingFunds)} opening funds`
+          {startingMonthLabel
+            ? `${startingMonthLabel} · ${formatCurrency(point?.openingFunds ?? 0)} opening funds`
             : 'Not set — historical income still carries forward'}
         </span>
         {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -128,13 +129,7 @@ export function BudgetStartingPointPanel({ selectedMonth }: { selectedMonth: str
                 type="button"
                 disabled={!canSave || save.isPending}
                 onClick={() =>
-                  save.mutate(
-                    { startMonth: null, openingFunds: 0 },
-                    {
-                      onSuccess: () => setExpanded(false),
-                      onError: (reason) => setError(reason.message),
-                    },
-                  )
+                  save.mutate({ startMonth: null, openingFunds: 0 }, saveOptions)
                 }
                 className="rounded-md border border-border px-3 py-2 text-sm text-text-secondary disabled:opacity-50"
               >
