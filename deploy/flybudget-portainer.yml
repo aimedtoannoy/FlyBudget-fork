@@ -6,7 +6,7 @@ services:
     container_name: flybudget
     restart: unless-stopped
     ports:
-      - "${FLYBUDGET_BIND_IP:?Set the server LAN IP}:3001:3001"
+      - '${FLYBUDGET_BIND_IP:?Set the server LAN IP}:3001:3001'
     environment:
       TZ: America/Chicago
       FLYBUDGET_DATA_KEY_FILE: /run/secrets/flybudget_data_key
