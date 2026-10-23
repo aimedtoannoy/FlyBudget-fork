@@ -11,7 +11,7 @@ interface PostedReplacement {
   postedPlaidId: string;
   date: string;
   amount: number;
-  importedPayee: string | null;
+  importedPayee: string;
 }
 
 /** Plaid links a newly posted charge to its former authorization by ID.
