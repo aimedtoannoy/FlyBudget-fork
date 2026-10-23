@@ -10,7 +10,9 @@ beforeAll(() => {
   migrate(db, { migrationsFolder: 'src/db/migrations' });
   db.insert(accounts).values({ id: 'test-bank', name: 'Checking', type: 'checking' }).run();
   db.insert(categoryGroups).values({ id: 'test-group', name: 'Shopping' }).run();
-  db.insert(categories).values({ id: 'test-cat', name: 'Groceries', groupId: 'test-group' }).run();
+  db.insert(categories)
+    .values({ id: 'test-cat', name: 'Groceries', groupId: 'test-group' })
+    .run();
 });
 
 describe('Plaid pending-to-posted matching', () => {
@@ -54,16 +56,16 @@ describe('Plaid pending-to-posted matching', () => {
       }),
     ).toBe(true);
 
-    expect(db.select().from(transactions).where(eq(transactions.id, 'local-1')).get()).toMatchObject(
-      {
-        pending: 0,
-        importedId: 'plaid:posted-1',
-        amount: -1100,
-        categoryId: 'test-cat',
-        notes: 'Personal note',
-        date: '2026-10-22',
-      },
-    );
+    expect(
+      db.select().from(transactions).where(eq(transactions.id, 'local-1')).get(),
+    ).toMatchObject({
+      pending: 0,
+      importedId: 'plaid:posted-1',
+      amount: -1100,
+      categoryId: 'test-cat',
+      notes: 'Personal note',
+      date: '2026-10-22',
+    });
     expect(accountTransactionSum('test-bank')).toBe(-1100);
     expect(accountPostedTransactionSum('test-bank')).toBe(-1100);
     expect(db.select().from(transactions).all()).toHaveLength(1);
