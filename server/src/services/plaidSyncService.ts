@@ -114,6 +114,20 @@ export async function syncPlaidItem(plaidItemId: string): Promise<SyncResult> {
       result.added++;
     };
 
+    // Backfill the pending authorizations that older FlyBudget builds silently skipped
+    // BEFORE applying new posted events. Otherwise a newly booked charge could be
+    // inserted before its matching authorization is recovered, creating a duplicate.
+    let pendingBackfilled = item.pendingBackfilled === 1;
+    if (!pendingBackfilled) {
+      try {
+        const missed = await getCurrentPendingTransactions(item.accessToken);
+        for (const tx of missed) importAdded(tx);
+        pendingBackfilled = true;
+      } catch (err) {
+        logError('Plaid pending-transaction backfill failed; will retry', err);
+      }
+    }
+
     for (const tx of syncData.added) importAdded(tx);
 
     for (const tx of syncData.modified) {
@@ -164,6 +178,12 @@ export async function syncPlaidItem(plaidItemId: string): Promise<SyncResult> {
           .run();
         // Its value (and a transfer's other side's) follows; a typed-in one stays unless the
         // amount changed
+        // A modified event can change an authorization's pending flag while
+        // retaining its ID. Keep split children in the same status as the parent.
+        db.update(transactions)
+          .set({ pending: tx.pending ? 1 : 0, date: tx.date })
+          .where(eq(transactions.parentTransactionId, existing.id))
+          .run();
         refreshMainAmounts([existing.id], { keepManual: amount === existing.amount });
       });
 
@@ -189,20 +209,6 @@ export async function syncPlaidItem(plaidItemId: string): Promise<SyncResult> {
 
       deleteTransactionRow(existing);
       result.removed++;
-    }
-
-    // Older versions advanced Plaid cursors past pending authorizations. On the
-    // first upgraded sync only, recover currently pending rows without replaying
-    // historical posted transactions. A failure is retryable and never blocks sync.
-    let pendingBackfilled = item.pendingBackfilled === 1;
-    if (!pendingBackfilled) {
-      try {
-        const missed = await getCurrentPendingTransactions(item.accessToken);
-        for (const tx of missed) importAdded(tx);
-        pendingBackfilled = true;
-      } catch (err) {
-        logError('Plaid pending-transaction backfill failed; will retry', err);
-      }
     }
 
     for (const bal of syncData.accountBalances) {

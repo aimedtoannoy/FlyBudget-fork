@@ -26,8 +26,8 @@ Branch: `feature/plaid-pending-transactions`
 
 Plaid bank data can still lag real-time activity; pending visibility is limited
 to events Plaid returns. An authorization's final amount can change (tips,
-fuel holds, hotels). Split allocations may need review after posting when the
-amount changes. Bank `available` balances may differ from current balance plus
+fuel holds, hotels). When a final posted amount differs, existing split allocations are adjusted
+proportionally while keeping their categories. Review any unusually large changes. Bank `available` balances may differ from current balance plus
 pending entries due to holds and institution-specific accounting. The register
 therefore represents projected activity, not an authoritative available balance.
 

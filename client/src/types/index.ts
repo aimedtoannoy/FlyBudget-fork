@@ -191,7 +191,7 @@ export interface Transaction {
   notes: string | null;
   reconciled: number;
   /** 1 when a bank charge is still pending; 0 after it posts. */
-  pending: number;
+  pending?: number;
   transferTransactionId: string | null;
   isParent: number;
   parentTransactionId: string | null;

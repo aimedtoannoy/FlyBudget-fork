@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { transactions } from '../../db/schema.js';
 import { refreshMainAmounts } from '../../services/mainAmountService.js';
+import { allocate } from '../../utils/money.js';
 import { syncedTransferChange } from '../../services/transferService.js';
 
 interface PostedReplacement {
@@ -74,12 +75,25 @@ export function promotePendingPlaidTransaction(change: PostedReplacement): boole
       .where(eq(transactions.id, row.id))
       .run();
 
-    // Split children inherit the parent's posting status. The user retains
-    // their chosen split allocation; if the final amount differs, review it.
-    db.update(transactions)
-      .set({ pending: 0 })
+    // Tips, fuel holds, etc. may change the amount that finally posts.
+    // Reallocate existing split amounts proportionally so the children still
+    // sum to the parent, preserving each category, split ID and notes.
+    const children = db
+      .select()
+      .from(transactions)
       .where(eq(transactions.parentTransactionId, row.id))
-      .run();
+      .orderBy(transactions.id)
+      .all();
+    const postedParts = allocate(
+      transfer === 'locked' ? row.amount : change.amount,
+      children.map((child) => child.amount),
+    );
+    for (const [index, child] of children.entries()) {
+      db.update(transactions)
+        .set({ pending: 0, amount: postedParts[index], date: change.date })
+        .where(eq(transactions.id, child.id))
+        .run();
+    }
     refreshMainAmounts([row.id], { keepManual: change.amount === row.amount });
   });
   return true;
