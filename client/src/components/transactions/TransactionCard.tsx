@@ -6,6 +6,7 @@ import { useAccountCurrency } from '../../hooks/useCurrency';
 import { ForeignValue } from '../currency/ForeignValue';
 import { usePreferencesStore } from '../../store/preferencesStore';
 import type { Transaction, PayeeWithCount } from '../../types';
+import { PendingLabel } from '../../features/pending-transactions/PendingLabel';
 
 interface Props {
   tx: Transaction;
@@ -73,6 +74,7 @@ export function TransactionCard({
           <span className="flex-1 min-w-0 truncate text-[15px] font-medium text-text">
             {payeeName}
           </span>
+          <PendingLabel pending={tx.pending} />
           <span
             className={`shrink-0 text-[15px] font-medium tabular-nums ${tx.amount > 0 ? 'text-positive' : 'text-text'}`}
           >

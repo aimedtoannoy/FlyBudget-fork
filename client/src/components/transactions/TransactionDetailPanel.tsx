@@ -18,6 +18,7 @@ import { formatMoney } from '../../utils/currency';
 import { useAccountCurrency } from '../../hooks/useCurrency';
 import { MainAmountField } from '../currency/MainAmountField';
 import { RECURRENCE_TYPE_LABELS } from '../../types';
+import { PendingLabel } from '../../features/pending-transactions/PendingLabel';
 import type {
   Transaction,
   CategoryGroup,
@@ -188,7 +189,10 @@ export function TransactionDetailPanel({
               }
             />
             <div>
-              <div className="text-base font-semibold text-text">{payeeName}</div>
+              <div className="flex items-center gap-2">
+                <div className="text-base font-semibold text-text">{payeeName}</div>
+                <PendingLabel pending={tx.pending} />
+              </div>
               {accountName && (
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <AccountIcon name={accountName} type={accountType} logo={accountLogo} size="xs" />

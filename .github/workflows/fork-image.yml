@@ -1,0 +1,42 @@
+name: Publish FlyBudget Fork Image
+
+# Only publish a new application image after the merged main branch passes CI.
+# Personal bank data stays on the user's server and is never part of this build.
+on:
+  workflow_run:
+    workflows: ['CI']
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/aimedtoannoy/flybudget:latest
+            ghcr.io/aimedtoannoy/flybudget:sha-${{ github.event.workflow_run.head_sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/aimedtoannoy/FlyBudget-fork
+            org.opencontainers.image.description=Self-hosted FlyBudget fork with Plaid pending transactions
+          cache-from: type=gha,scope=flybudget-fork
+          cache-to: type=gha,scope=flybudget-fork,mode=max

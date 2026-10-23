@@ -207,6 +207,8 @@ export function getMatchSuggestions(): MatchSuggestion[] {
         and(
           isNull(transactions.scheduleId),
           isNull(transactions.transferTransactionId),
+          // A pending card authorization is not proof that a scheduled bill posted.
+          eq(transactions.pending, 0),
           gte(
             transactions.date,
             format(subDays(parseISO(occ.expectedDate), schedule.dateFlexibility), 'yyyy-MM-dd'),

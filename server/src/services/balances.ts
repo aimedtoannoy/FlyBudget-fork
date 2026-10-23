@@ -34,3 +34,17 @@ export function accountTransactionSum(accountId: string): number {
  * Per-account sums (balances, reconciling) use `amount`, in the account's own currency.
  */
 export const mainAmount: SQL<number> = sql<number>`(case when ${transactions.mainAmountSource} = 'missing' then 0 else coalesce(${transactions.mainAmount}, ${transactions.amount}) end)`;
+
+/** Bank current balances normally exclude pending authorizations. Use only booked
+ * transactions for Plaid's current-balance reconciliation; pending amounts remain
+ * visible in the account's projected ledger balance and budget spending. */
+export function accountPostedTransactionSum(accountId: string): number {
+  const row = db
+    .select({ sum: sql<number>`coalesce(sum(${transactions.amount}), 0)` })
+    .from(transactions)
+    .where(
+      and(eq(transactions.accountId, accountId), inAccountBalance, eq(transactions.pending, 0)),
+    )
+    .get();
+  return row?.sum ?? 0;
+}

@@ -1,0 +1,22 @@
+# FlyBudget-fork template for an existing Portainer deployment.
+# Verify the host paths and LAN interface before changing a running stack.
+services:
+  flybudget:
+    image: ghcr.io/aimedtoannoy/flybudget:latest
+    container_name: flybudget
+    restart: unless-stopped
+    ports:
+      - '${FLYBUDGET_BIND_IP:?Set the server LAN IP}:3001:3001'
+    environment:
+      TZ: America/Chicago
+      FLYBUDGET_DATA_KEY_FILE: /run/secrets/flybudget_data_key
+    volumes:
+      - /mnt/drive500gb/flybudget/data:/data
+      - /mnt/drive500gb/flybudget/secrets/flybudget_data_key.txt:/run/secrets/flybudget_data_key:ro
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL

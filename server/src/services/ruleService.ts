@@ -74,6 +74,8 @@ export type NewTransactionInput = {
   notes: string | null;
   categoryId: string | null;
   importedId: string | null;
+  /** Plaid authorization that has not posted yet (never used for manual entries). */
+  pending?: boolean;
   /** Chosen by the device for a transaction saved offline, so sending it twice can't duplicate it */
   id?: string;
   /** A balance correction (reconciliation, "Update value"): not categorized by rules */
@@ -132,6 +134,7 @@ export function insertNewTransaction(input: NewTransactionInput, opts: InsertOpt
     categoryId: tx.categoryId,
     notes: tx.notes,
     reconciled: 0,
+    pending: input.pending ? 1 : 0,
     isParent: 0,
     isAdjustment: 0,
     transferTransactionId: null,

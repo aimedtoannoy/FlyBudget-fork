@@ -2,11 +2,18 @@ import { db } from '../db/index.js';
 import { plaidItems, plaidAccountMappings, transactions, accounts } from '../db/schema.js';
 import { logError } from '../utils/log.js';
 import { eq, and, inArray } from 'drizzle-orm';
-import { syncTransactions, plaidAmountToCents, plaidBalanceToCents } from './plaidService.js';
+import {
+  syncTransactions,
+  getCurrentPendingTransactions,
+  plaidAmountToCents,
+  plaidBalanceToCents,
+  type PlaidSyncResult,
+} from './plaidService.js';
+import { promotePendingPlaidTransaction } from '../features/pending-transactions/plaidPending.js';
 import { buildRuleContext, insertNewTransaction, loadRules } from './ruleService.js';
 import { currencyContext, refreshMainAmounts } from './mainAmountService.js';
 import { minorUnits } from '../utils/currencies.js';
-import { accountTransactionSum } from './balances.js';
+import { accountPostedTransactionSum } from './balances.js';
 import { deleteTransactionRow } from './transactionHelpers.js';
 import { syncedTransferChange } from './transferService.js';
 
@@ -55,10 +62,10 @@ export async function syncPlaidItem(plaidItemId: string): Promise<SyncResult> {
       !!m.currency && !!tx.currency && m.currency !== tx.currency;
     const minorOf = (m: { currency: string | null }) => minorUnits(m.currency);
 
-    for (const tx of syncData.added) {
+    const importAdded = (tx: PlaidSyncResult['added'][number]) => {
       const mapping = mappingByPlaidId.get(tx.accountId);
-      if (!mapping || !mapping.accountId || !mapping.isEnabled) continue;
-      if (otherCurrency(mapping, tx)) continue;
+      if (!mapping || !mapping.accountId || !mapping.isEnabled) return;
+      if (otherCurrency(mapping, tx)) return;
 
       const importedId = `plaid:${tx.transactionId}`;
       const existing = db
@@ -71,7 +78,21 @@ export async function syncPlaidItem(plaidItemId: string): Promise<SyncResult> {
           ),
         )
         .get();
-      if (existing) continue;
+      if (existing) return;
+      if (
+        !tx.pending &&
+        promotePendingPlaidTransaction({
+          accountId: mapping.accountId,
+          priorPlaidId: tx.pendingTransactionId,
+          postedPlaidId: tx.transactionId,
+          date: tx.date,
+          amount: plaidAmountToCents(tx.amount, minorOf(mapping)),
+          importedPayee: tx.name || tx.merchantName || '',
+        })
+      ) {
+        result.modified++;
+        return;
+      }
 
       insertNewTransaction(
         {
@@ -85,12 +106,29 @@ export async function syncPlaidItem(plaidItemId: string): Promise<SyncResult> {
           notes: null,
           categoryId: null,
           importedId,
+          pending: tx.pending,
         },
         ruleOpts,
       );
 
       result.added++;
+    };
+
+    // Backfill the pending authorizations that older FlyBudget builds silently skipped
+    // BEFORE applying new posted events. Otherwise a newly booked charge could be
+    // inserted before its matching authorization is recovered, creating a duplicate.
+    let pendingBackfilled = item.pendingBackfilled === 1;
+    if (!pendingBackfilled) {
+      try {
+        const missed = await getCurrentPendingTransactions(item.accessToken);
+        for (const tx of missed) importAdded(tx);
+        pendingBackfilled = true;
+      } catch (err) {
+        logError('Plaid pending-transaction backfill failed; will retry', err);
+      }
     }
+
+    for (const tx of syncData.added) importAdded(tx);
 
     for (const tx of syncData.modified) {
       const mapping = mappingByPlaidId.get(tx.accountId);
@@ -128,18 +166,24 @@ export async function syncPlaidItem(plaidItemId: string): Promise<SyncResult> {
             transfer === 'unlinked'
               ? existing.transferTransactionId
                 ? // Just unlinked: its payee was set from the bank's text
-                  { date: tx.date, amount, importedPayee }
-                : { date: tx.date, amount, payeeName }
+                  { date: tx.date, amount, importedPayee, pending: tx.pending ? 1 : 0 }
+                : { date: tx.date, amount, payeeName, pending: tx.pending ? 1 : 0 }
               : // A linked transfer keeps its "Transfer: account" name; the bank's text is kept
                 // for rules. A reconciled other side keeps the pair's amount
                 transfer === 'locked'
-                ? { date: tx.date, importedPayee }
-                : { date: tx.date, amount, importedPayee },
+                ? { date: tx.date, importedPayee, pending: tx.pending ? 1 : 0 }
+                : { date: tx.date, amount, importedPayee, pending: tx.pending ? 1 : 0 },
           )
           .where(eq(transactions.id, existing.id))
           .run();
         // Its value (and a transfer's other side's) follows; a typed-in one stays unless the
         // amount changed
+        // A modified event can change an authorization's pending flag while
+        // retaining its ID. Keep split children in the same status as the parent.
+        db.update(transactions)
+          .set({ pending: tx.pending ? 1 : 0, date: tx.date })
+          .where(eq(transactions.parentTransactionId, existing.id))
+          .run();
         refreshMainAmounts([existing.id], { keepManual: amount === existing.amount });
       });
 
@@ -177,7 +221,7 @@ export async function syncPlaidItem(plaidItemId: string): Promise<SyncResult> {
         minorOf(mapping),
       );
 
-      const newStartingBalance = targetBalance - accountTransactionSum(mapping.accountId);
+      const newStartingBalance = targetBalance - accountPostedTransactionSum(mapping.accountId);
 
       db.update(accounts)
         .set({ startingBalance: newStartingBalance })
@@ -188,6 +232,7 @@ export async function syncPlaidItem(plaidItemId: string): Promise<SyncResult> {
     db.update(plaidItems)
       .set({
         cursor: syncData.nextCursor,
+        pendingBackfilled: pendingBackfilled ? 1 : 0,
         lastSyncedAt: new Date().toISOString(),
         syncStatus: 'good',
         syncError: null,

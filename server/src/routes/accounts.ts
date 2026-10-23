@@ -177,6 +177,9 @@ accountsRouter.put('/:id/reconcile', (req, res) => {
         eq(transactions.accountId, req.params.id),
         inArray(transactions.id, parsed.data.transactionIds),
         ne(transactions.reconciled, 1),
+        // An authorization can disappear or settle at a different amount.
+        // Never lock it before Plaid confirms that it has posted.
+        eq(transactions.pending, 0),
       ),
     )
     .run();
