@@ -42,7 +42,9 @@ export function accountPostedTransactionSum(accountId: string): number {
   const row = db
     .select({ sum: sql<number>`coalesce(sum(${transactions.amount}), 0)` })
     .from(transactions)
-    .where(and(eq(transactions.accountId, accountId), inAccountBalance, eq(transactions.pending, 0)))
+    .where(
+      and(eq(transactions.accountId, accountId), inAccountBalance, eq(transactions.pending, 0)),
+    )
     .get();
   return row?.sum ?? 0;
 }
