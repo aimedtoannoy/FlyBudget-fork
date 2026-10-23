@@ -143,3 +143,34 @@ jobs:
       - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
         run: exit 1
       - run: echo "All checks passed"
+
+  # Same workflow run: a green main-branch CI publishes the image, with no
+  # second full testing workflow and no automatic upstream Docker workflow.
+  publish-fork-image:
+    name: Publish fork image
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.ci-passed.result == 'success'
+    needs: [ci-passed]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/aimedtoannoy/flybudget:latest
+            ghcr.io/aimedtoannoy/flybudget:sha-${{ github.sha }}
+          cache-from: type=gha,scope=flybudget-fork
+          cache-to: type=gha,scope=flybudget-fork,mode=max

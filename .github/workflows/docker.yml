@@ -15,12 +15,7 @@ name: Docker
 #   gh attestation verify oci://ghcr.io/dtymoszenko/flybudget:<version> -R dtymoszenko/FlyBudget
 
 on:
-  push:
-    branches: [main]
-    tags: ['v*']
-  pull_request:
-  schedule:
-    - cron: '0 6 * * 1' # weekly vulnerability scan of the image
+  workflow_dispatch:
 
 permissions: {}
 

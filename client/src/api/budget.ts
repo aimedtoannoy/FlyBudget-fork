@@ -1,5 +1,15 @@
 import { apiFetch } from './client';
 import type { BudgetGroup, BudgetSummary } from '../types';
+import type { BudgetStartingPoint } from '../features/budget-start/types';
+
+export const getBudgetStartingPoint = () =>
+  apiFetch<BudgetStartingPoint>('/budget/settings');
+
+export const saveBudgetStartingPoint = (value: BudgetStartingPoint) =>
+  apiFetch<BudgetStartingPoint>('/budget/settings', {
+    method: 'PUT',
+    body: JSON.stringify(value),
+  });
 
 export const getBudget = (month: string) => apiFetch<BudgetGroup[]>(`/budget/${month}`);
 

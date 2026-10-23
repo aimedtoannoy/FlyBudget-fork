@@ -17,6 +17,7 @@ import { BudgetEditPopover } from '../components/budget/BudgetEditPopover';
 import { Button } from '../components/ui/Button';
 import { SpentBar } from '../components/budget/SpentBar';
 import { PhoneBudget } from '../components/budget/PhoneBudget';
+import { BudgetStartingPointPanel } from '../features/budget-start/BudgetStartingPointPanel';
 import { MissingRatesBanner } from '../components/currency/MissingRatesBanner';
 import { useIsPhone } from '../hooks/useIsPhone';
 import { useCanSave } from '../hooks/useConnection';
@@ -539,6 +540,8 @@ export default function BudgetPage() {
           </p>
         </div>
       )}
+
+      <BudgetStartingPointPanel selectedMonth={selectedMonth} />
 
       <MissingRatesBanner className="mx-6 mt-3 shrink-0" />
 

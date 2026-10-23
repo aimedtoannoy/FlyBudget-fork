@@ -4,6 +4,14 @@ Keep custom business logic in `server/src/features/<feature-name>/` and
 `client/src/features/<feature-name>/`. Only small integration points belong in
 upstream directories (existing Plaid services, schema, register components).
 
+## Budget starting point
+
+See [budget-start.md](./budget-start.md) for the budget-start month and opening
+unallocated funds. Old bank transactions and balances remain unchanged.
+Existing installations retain the legacy budget calculation until explicitly
+configured on the Budget page. Releases now use one main-branch CI workflow,
+including the container publish job; old Docker workflows are manual only.
+
 ## Plaid pending transactions
 
 Branch: `feature/plaid-pending-transactions`

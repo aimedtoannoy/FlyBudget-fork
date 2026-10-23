@@ -6,12 +6,19 @@ import { nanoid } from 'nanoid';
 import { z } from 'zod';
 import { monthBounds } from '../utils/date.js';
 import { mainAmount } from '../services/balances.js';
-import { isMonth } from '../utils/validation.js';
+import { isMonth, isoMonth } from '../utils/validation.js';
+import { getBudgetSettings, updateBudgetSettings } from '../services/mainAmountService.js';
+import { effectiveStartMonth } from '../features/budget-start/budgetWindow.js';
 
 export const budgetRouter = Router();
 
 const cents = z.number().int().min(-1e13).max(1e13);
 const upsertSchema = z.object({ budgeted: cents });
+const startingPointSchema = z
+  .object({ startMonth: isoMonth.nullable(), openingFunds: cents })
+  .refine((value) => value.startMonth !== null || value.openingFunds === 0, {
+    message: 'Opening funds must be zero when there is no starting month',
+  });
 
 // The budget only counts money in on-budget accounts: a categorized dividend in an
 // off-budget brokerage account isn't money to budget
@@ -20,6 +27,22 @@ const onBudgetAccountIds = db
   .from(accounts)
   .where(eq(accounts.isOffBudget, 0));
 const onBudget = inArray(transactions.accountId, onBudgetAccountIds);
+
+/** Optional budget baseline. No account balances or imported transactions are edited. */
+budgetRouter.get('/settings', (_req, res) => {
+  const settings = getBudgetSettings();
+  res.json({ startMonth: settings.budgetStartMonth, openingFunds: settings.openingFunds });
+});
+
+budgetRouter.put('/settings', (req, res) => {
+  const parsed = startingPointSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  const updated = updateBudgetSettings({
+    budgetStartMonth: parsed.data.startMonth,
+    openingFunds: parsed.data.openingFunds,
+  });
+  res.json({ startMonth: updated.budgetStartMonth, openingFunds: updated.openingFunds });
+});
 
 // Every route here takes a YYYY-MM month
 budgetRouter.param('month', (_req, res, next, month) => {
@@ -30,6 +53,7 @@ budgetRouter.param('month', (_req, res, next, month) => {
 budgetRouter.get('/:month', (req, res) => {
   const { month } = req.params;
   const { from, to } = monthBounds(month);
+  const startMonth = effectiveStartMonth(month, getBudgetSettings().budgetStartMonth);
 
   const groups = db.select().from(categoryGroups).orderBy(categoryGroups.sortOrder).all();
   const cats = db.select().from(categories).orderBy(categories.sortOrder).all();
@@ -51,7 +75,7 @@ budgetRouter.get('/:month', (req, res) => {
       total: sql<number>`coalesce(sum(${budgetMonths.budgeted}), 0)`,
     })
     .from(budgetMonths)
-    .where(lt(budgetMonths.month, month))
+    .where(and(lt(budgetMonths.month, month), startMonth ? gte(budgetMonths.month, startMonth) : undefined))
     .groupBy(budgetMonths.categoryId)
     .all();
 
@@ -61,7 +85,13 @@ budgetRouter.get('/:month', (req, res) => {
       total: sql<number>`coalesce(sum(${mainAmount}), 0)`,
     })
     .from(transactions)
-    .where(and(lt(transactions.date, from), onBudget))
+    .where(
+      and(
+        lt(transactions.date, from),
+        startMonth ? gte(transactions.date, `${startMonth}-01`) : undefined,
+        onBudget,
+      ),
+    )
     .groupBy(transactions.categoryId)
     .all();
 
@@ -260,6 +290,8 @@ budgetRouter.put('/category/:categoryId/bulk', (req, res) => {
 budgetRouter.get('/:month/summary', (req, res) => {
   const { month } = req.params;
   const { from, to } = monthBounds(month);
+  const settings = getBudgetSettings();
+  const startMonth = effectiveStartMonth(month, settings.budgetStartMonth);
 
   const incomeRow = db
     .select({ total: sql<number>`coalesce(sum(${mainAmount}), 0)` })
@@ -289,7 +321,14 @@ budgetRouter.get('/:month/summary', (req, res) => {
     .from(transactions)
     .innerJoin(categories, eq(transactions.categoryId, categories.id))
     .innerJoin(categoryGroups, eq(categories.groupId, categoryGroups.id))
-    .where(and(lt(transactions.date, from), eq(categoryGroups.isIncome, 1), onBudget))
+    .where(
+      and(
+        lt(transactions.date, from),
+        startMonth ? gte(transactions.date, `${startMonth}-01`) : undefined,
+        eq(categoryGroups.isIncome, 1),
+        onBudget,
+      ),
+    )
     .get();
 
   const priorBudgetedRow = db
@@ -297,13 +336,22 @@ budgetRouter.get('/:month/summary', (req, res) => {
     .from(budgetMonths)
     .innerJoin(categories, eq(budgetMonths.categoryId, categories.id))
     .innerJoin(categoryGroups, eq(categories.groupId, categoryGroups.id))
-    .where(and(lt(budgetMonths.month, month), eq(categoryGroups.isIncome, 0)))
+    .where(
+      and(
+        lt(budgetMonths.month, month),
+        startMonth ? gte(budgetMonths.month, startMonth) : undefined,
+        eq(categoryGroups.isIncome, 0),
+      ),
+    )
     .get();
 
   // tbb = income + leftover from prior months - what's already budgeted
   const income = incomeRow?.total ?? 0;
   const totalBudgeted = budgetedRow?.total ?? 0;
-  const carryOver = (priorIncomeRow?.total ?? 0) - (priorBudgetedRow?.total ?? 0);
+  const carryOver =
+    (startMonth ? settings.openingFunds : 0) +
+    (priorIncomeRow?.total ?? 0) -
+    (priorBudgetedRow?.total ?? 0);
 
   res.json({
     month,

@@ -28,6 +28,8 @@ export function getBudgetSettings(): BudgetSettings {
     db.select().from(budgetSettings).where(eq(budgetSettings.id, SETTINGS_ID)).get() ?? {
       id: SETTINGS_ID,
       currency: null,
+      budgetStartMonth: null,
+      openingFunds: 0,
       ratesEnabled: 0,
       ratesUrl: null,
       ratesLastFetchedAt: null,

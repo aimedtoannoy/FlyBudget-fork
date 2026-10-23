@@ -3,6 +3,25 @@ import * as budgetApi from '../api/budget';
 import { useUndoStore } from '../store/undoStore';
 import type { BudgetGroup } from '../types';
 
+export function useBudgetStartingPoint() {
+  return useQuery({
+    queryKey: ['budget-starting-point'],
+    queryFn: budgetApi.getBudgetStartingPoint,
+  });
+}
+
+export function useSaveBudgetStartingPoint() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: budgetApi.saveBudgetStartingPoint,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['budget-starting-point'] });
+      qc.invalidateQueries({ queryKey: ['budget'] });
+      qc.invalidateQueries({ queryKey: ['budget-summary'] });
+    },
+  });
+}
+
 // Switching months keeps showing the previous month until the next one arrives, so the
 // page doesn't collapse to an empty budget (and jump) in between
 export function useBudget(month: string) {

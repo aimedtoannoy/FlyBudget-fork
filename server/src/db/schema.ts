@@ -499,6 +499,10 @@ export const budgetSettings = sqliteTable('budget_settings', {
   id: text('id').primaryKey(),
   /** ISO 4217 code of the budget's currency; null = not chosen yet (the device's symbol is shown) */
   currency: text('currency'),
+  /** First month used for new budget allocations, e.g. '2026-10'; null = legacy history. */
+  budgetStartMonth: text('budget_start_month'),
+  /** Unassigned funds entering the first month, in budget-currency minor units. */
+  openingFunds: integer('opening_funds').notNull().default(0),
   /** 1 = download ECB reference rates (opt in: it's a request to another server) */
   ratesEnabled: integer('rates_enabled').notNull().default(0),
   /** Where to download them from; null = Frankfurter's public server */
