@@ -1,75 +1,74 @@
-# Money Lent and borrower financial profiles (FlyBudget fork)
+# Money Lent / person financial profiles
 
-Money Lent now groups multiple **separate named loans** under one person’s financial
-profile. Each loan retains its own amount, lending date, repayment arrangement,
-transaction references and repayment history. Creating this module does not alter
-the original bank or budget records.
+Money Lent is a tracking ledger for money you lend other people. **It never
+creates, edits or deletes a real bank transaction** and does not double-count
+cash available to budget. It remains distinct from FlyBudget's net-worth accounts.
 
-## Profiles
+## Layout and navigation
 
-Open **Money Lent** → **Add person**. A profile has a name and private notes.
-Select the profile to see its own loan list and total still owed. You can rename
-the profile or move an existing loan between profiles with **Edit / move loan**.
-Choose the correct person in the **Person** dropdown and save. This retains
-the loan's original database ID, all repayments, extra credit, notes, linked
-bank entries and schedule. It does not alter any underlying bank transactions.
+- **Money Lent** (sidebar → `/money-lent`) is an overview containing totals
+  and a list of people. Individual loans are **not** expanded here.
+- Select a person to open their **separate financial profile page**
+  (`/money-lent/people/:profileId`), with their name, notes, summary,
+  separate loans and histories. Use **Back to Money Lent** to return.
+- Choose **Add person** on the overview, and **New loan** on that person's page.
+- Each loan has an independent title, original amount, due arrangement,
+  notes, additional money lent, non-cash credits and real repayments.
+- Change an existing loan's owner with **Edit / move loan → Person**.
+  Existing IDs, bank links, payment history, notes and schedules are preserved.
 
-**Existing installation migration:** Previously created IOUs are preserved
-and automatically associated with a profile based on their existing borrower
-name when Money Lent first loads after migration. Repayment records, IDs,
-balances and original loan dates remain unchanged. Names that match after
-trimming whitespace and ignoring capitalization are initially grouped.
-If two distinct people share a name, create a second profile and move the
-appropriate loans; profiles are identified by IDs, not names.
+## The three distinct operations
 
-## Separate loans, credits and repayments
+| Button | What happens | Counts as cash received? |
+|---|---|---|
+| **Add to loan** | Records more money lent; **increases** debt | No |
+| **Record repayment** | Records money actually repaid; **decreases** debt | Yes |
+| **Apply credit** | Records an allowance, substitution, discount, write-off or forgiveness; **decreases** debt | **No** |
 
-Inside a profile choose **New loan**. Enter a loan title or purpose, original
-principal, lending date, and an optional one-time or installment schedule.
-Loans are not combined: two loans for the same person have different histories.
+The amounts are strictly positive in input forms; direction is determined by
+the operation. Each operation may include a date and notes. The loan history
+retains them separately, and total cash received excludes applied credits.
 
-Choose **Add credit** on a loan to record **additional money you lend**. This
-increases the total principal and outstanding balance without modifying the
-original lending amount. Choose **Record repayment** for payments received;
-repayments reduce the outstanding balance. Both actions support manual entry
-or an optional link to an existing posted bank transaction.
+`outstanding = original principal + additional money lent - cash repayments - applied credits`
 
-For a transaction link, select the posted bank outflow for additional money
-lent or the posted bank inflow for a repayment. The amount and date must match
-the bank transaction exactly. Original principal can also be linked to a
-posted outflow of the original amount. Pending bank entries, transfers between
-your own accounts, adjustments and duplicate IOU links are rejected.
+Credits cannot exceed outstanding debt. Repayments cannot exceed outstanding
+debt after credits. Editing original principal or removing an extra lending
+event cannot reduce the total below already received repayments **plus** applied
+credits. Credits can be removed (with confirmation) to correct a mistake;
+removing them increases the amount owed. The existing loan's original amount,
+prior repayment and advance records are unchanged by migration.
 
-Review a loan’s **History** to see original principal, additional advances,
-repayments and bank reference status. Incorrect manual events can be removed
-(with a balance-protection check); removing an IOU record never deletes its
-bank counterpart. Editing the loan’s schedule, title or borrower profile
-does not erase those histories.
+Additional lending and cash repayments can optionally link to matching
+**posted** on-budget bank outflows/inflows. Pending, adjustment, duplicate
+IOU links and unsupported currency conversions cannot be used. A non-cash
+credit is never linked to a bank deposit, because no money was received.
 
-## Account and net-worth boundaries
+Loan schedules continue to support open-ended, single-date, and weekly,
+biweekly or monthly installments. Applied credits reduce the obligation and
+are included when evaluating whether the scheduled debt has been satisfied,
+but are **not** counted as repayments received. An IOU paid off partly by
+credit is labeled **Settled with credit** rather than **Fully repaid**.
+Reminders appear in the app only; no borrower messages or push alerts are sent.
 
-These profiles are **informational receivable records**, not actual checking
-accounts or duplicate bank accounts. IOUs do not automatically appear as
-assets in net worth or as cash available to budget. A transfer from your
-checking to the borrower should continue to exist in your normal bank register,
-with normal accounting and categories. Linking one here is a reference only.
+## Existing users and migration
 
-If you already record a personal receivable as an **Other Asset** account,
-take care not to include the same debt twice in your financial reports.
-Loans use the budget currency. Existing posted transactions without a valid
-budget-currency conversion cannot be linked.
+**All existing Money Lent records stay intact**, including data from
+`0027_personal_loans.sql`. The profiles migration
+`0028_borrower_profiles_goal_links.sql` groups legacy loans under a person
+based on their stored borrower name; if two people share a name, you may
+create another profile and move individual loans to it.
 
-The borrower names, profile notes and loan notes use the app’s at-rest
-encryption mechanism. An original loan’s title uses the same mechanism.
-In-app reminders are available for scheduled payments; this feature does not
-send texts, emails, push notifications or messages to other people.
+**New migration `0029_personal_loan_credits.sql` is additive.** It only
+creates the `personal_loan_credits` table; it does not rewrite
+`personal_loan_advances` or `personal_loan_repayments`.
+Previous "Add credit" actions are *already recorded as additional lending*
+and will now display under **Add to loan** and **Additional money lent**.
+They are **not silently converted** to debt forgiveness. To correct a
+previously mislabeled entry, review and remove the incorrect added-money
+event as appropriate, then apply a new non-cash credit.
 
-## Data integrity and installation
-
-Migration `0028_borrower_profiles_goal_links.sql` creates new profile,
-advance and goal-link tables and adds nullable links to existing loans.
-No existing loan rows are deleted or re-created.
-
-Preserve the existing Docker / Portainer database volume and encryption key.
-Back up the SQLite database **and the key** before deploying new images.
-Never reset the fork to upstream; merge and reconcile upstream migrations.
+The system preserves borrower names, original loan records and repayment
+references. **Back up your live SQLite database and its encryption key**
+before updating the Docker image. Keep the same database volume, encryption
+key, environment settings and Portainer configuration. If you already
+record the loan as an Other Asset account, do not add it again to net worth.

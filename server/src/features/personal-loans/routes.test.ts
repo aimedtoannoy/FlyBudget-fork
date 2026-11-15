@@ -261,7 +261,7 @@ describe('borrower profiles, multiple loans, extra credit and account matching',
     expect(db.select().from(personalLoanRepayments).all()).toHaveLength(1);
   });
 
-  it('additional credit increases outstanding without replacing original principal', async () => {
+  it('additional lending increases outstanding without replacing original principal', async () => {
     const created = await call('POST', '/', loanInput);
     const id = created.body.id;
     const advance = await call('POST', `/${id}/advances`, {

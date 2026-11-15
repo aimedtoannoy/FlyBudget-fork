@@ -80,6 +80,7 @@ jobs:
             client/src/App.tsx \
             client/src/components/goals/GoalFormModal.tsx \
             client/src/features/personal-loans/FinancialProfileForms.tsx \
+            client/src/features/personal-loans/BorrowerProfilePage.tsx \
             client/src/features/personal-loans/PersonalLoansPage.tsx \
             client/src/features/personal-loans/api.ts \
             client/src/features/transaction-links/GoalTransactionsPanel.tsx \
@@ -94,6 +95,9 @@ jobs:
             server/src/routes/goals.ts \
             server/src/db/migrations/meta/_journal.json \
             server/src/db/migrations/meta/0028_snapshot.json \
+            server/src/db/migrations/meta/0029_snapshot.json \
+            e2e/tests/money-lent.spec.ts \
+            e2e/tests/navigation.spec.ts \
             docs/customizations/README.md \
             docs/customizations/personal-loans.md \
             docs/customizations/goal-transactions.md

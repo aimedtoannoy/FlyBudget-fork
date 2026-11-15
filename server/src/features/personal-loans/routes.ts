@@ -350,14 +350,14 @@ personalLoansRouter.post('/:id/advances', (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   const credit = parsed.data;
   if (credit.advancedOn < loan.lentOn)
-    return res.status(400).json({ error: 'Additional credit predates original loan' });
+    return res.status(400).json({ error: 'Additional money lent predates original loan' });
   if (loan.totalPrincipal + credit.amount > 1e13)
     return res.status(400).json({ error: 'Loan total exceeds supported amount' });
   if (credit.transactionId) {
     const tx = bankTransaction(credit.transactionId);
     if (!tx || tx.isTransfer || tx.isOffBudget || tx.date !== credit.advancedOn ||
         tx.value !== -credit.amount) {
-      return res.status(400).json({ error: 'Credit must match an existing posted bank outflow' });
+      return res.status(400).json({ error: 'Additional money lent must match an existing posted bank outflow' });
     }
     if (isLoanTransactionUsed(credit.transactionId))
       return res.status(409).json({ error: 'Transaction already linked to another IOU' });
@@ -373,9 +373,9 @@ personalLoansRouter.delete('/:id/advances/:advanceId', (req, res) => {
   const credit = db.select().from(personalLoanAdvances).where(
     and(eq(personalLoanAdvances.id, req.params.advanceId), eq(personalLoanAdvances.loanId, loan.id)),
   ).get();
-  if (!credit) return res.status(404).json({ error: 'Credit not found' });
+  if (!credit) return res.status(404).json({ error: 'Added loan amount not found' });
   if (loan.totalPrincipal - credit.amount < loan.repaid + loan.credited)
-    return res.status(409).json({ error: 'Cannot remove credit already covered by repayments' });
+    return res.status(409).json({ error: 'Cannot remove additional lending already covered by repayments or applied credits' });
   db.delete(personalLoanAdvances).where(eq(personalLoanAdvances.id, credit.id)).run();
   res.json(getLoan(loan.id));
 });

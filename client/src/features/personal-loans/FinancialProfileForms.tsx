@@ -116,7 +116,7 @@ export function LoanForm({
         {loan && (
           <span className="text-xs font-normal text-text-tertiary">
             To transfer this existing loan to a different person's profile,
-            select the person here and save. All previous repayments, extra credit,
+            select the person here and save. All previous repayments, added money,
             bank links and the original loan ID are preserved.
           </span>
         )}

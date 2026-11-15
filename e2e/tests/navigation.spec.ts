@@ -12,6 +12,7 @@ const PAGES: { link: string; route: string; heading?: string }[] = [
   { link: 'Reports', route: '/reports', heading: 'Reports' },
   { link: 'Cash Flow', route: '/cash-flow', heading: 'Cash Flow' },
   { link: 'Goals', route: '/goals', heading: 'Goals' },
+  { link: 'Money Lent', route: '/money-lent', heading: 'Money Lent' },
   { link: 'Payees', route: '/payees', heading: 'Payees' },
   { link: 'Rules', route: '/rules', heading: 'Rules' },
   { link: 'Settings', route: '/settings', heading: 'Settings' },
