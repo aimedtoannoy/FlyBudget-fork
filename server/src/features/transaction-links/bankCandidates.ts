@@ -76,12 +76,12 @@ export function bankCandidates(opts: {
     value: t.currency && t.currency !== budgetCurrency && t.mainAmount === null
       ? null : (t.mainAmount ?? t.amount),
     isTransfer: Boolean(t.transferTransactionId),
-  })).filter((t): t is typeof t & { value: number } => {
+  })).filter((t) => {
     if (t.value === null || t.value === 0) return false;
     if (opts.direction === 'in' && t.value <= 0) return false;
     if (opts.direction === 'out' && t.value >= 0) return false;
     if (!opts.includeTransfers && t.isTransfer) return false;
     return !q || `${t.date} ${t.payeeName ?? ''} ${t.accountName} ${Math.abs(t.value) / 100}`
       .toLowerCase().includes(q);
-  }).slice(0, 100);
+  }).map((t) => ({ ...t, value: t.value! })).slice(0, 100);
 }
