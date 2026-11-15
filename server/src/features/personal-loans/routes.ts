@@ -178,10 +178,7 @@ personalLoansRouter.post('/profiles', (req, res) => {
   const parsed = profileInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   ensureProfiles();
-  const exists = db.select().from(borrowerProfiles).all().find(
-    (p) => p.name.trim().toLocaleLowerCase() === parsed.data.name.toLocaleLowerCase(),
-  );
-  if (exists) return res.status(409).json({ error: 'A profile with this name already exists', profileId: exists.id });
+  // Profiles are identified by ID: two distinct people may have the same name.
   const id = nanoid();
   const row = { id, ...parsed.data, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
   db.insert(borrowerProfiles).values(row).run();
@@ -194,12 +191,6 @@ personalLoansRouter.put('/profiles/:profileId', (req, res) => {
   if (!original) return res.status(404).json({ error: 'Profile not found' });
   const parsed = profileInput.partial().safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  if (parsed.data.name) {
-    const conflict = db.select().from(borrowerProfiles).all().find(
-      (p) => p.id !== original.id && p.name.toLocaleLowerCase() === parsed.data.name?.toLocaleLowerCase(),
-    );
-    if (conflict) return res.status(409).json({ error: 'Profile name is already used' });
-  }
   db.update(borrowerProfiles).set({ ...parsed.data, updatedAt: new Date().toISOString() })
     .where(eq(borrowerProfiles.id, original.id)).run();
   if (parsed.data.name) {
