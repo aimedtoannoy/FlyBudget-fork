@@ -119,6 +119,7 @@ describe('goal transaction allocations', () => {
     expect((await call('POST', `/${goal.id}/transactions`, {
       transactionId: 'transfer-in', appliedAmount: 10000,
     })).status).toBe(201);
+    expect((await call('PUT', `/${goal.id}`, { accountId: 'checking' })).status).toBe(409);
     db.delete(transactions).run();
     expect((await call('GET', '/')).body[0]).toMatchObject({
       currentAmount: 20000, linkedAmount: 0, trackedAmount: 20000,

@@ -70,6 +70,18 @@ goalsRouter.put('/:id', (req, res) => {
   const parsed = createSchema.partial().safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
+  if (parsed.data.accountId) {
+    const existingLinks = db.select().from(goalTransactionLinks)
+      .where(eq(goalTransactionLinks.goalId, req.params.id)).all();
+    if (existingLinks.some((link) => {
+      const source = bankTransaction(link.transactionId);
+      return source && source.accountId !== parsed.data.accountId;
+    })) {
+      return res.status(409).json({
+        error: 'Unlink transactions from other accounts before changing the goal account',
+      });
+    }
+  }
   const update: Record<string, unknown> = { updatedAt: new Date().toISOString() };
   if (parsed.data.name !== undefined) update.name = parsed.data.name;
   if (parsed.data.targetAmount !== undefined) update.targetAmount = parsed.data.targetAmount;
