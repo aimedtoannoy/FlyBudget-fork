@@ -539,6 +539,12 @@ export const exchangeRates = sqliteTable(
 export const personalLoans = sqliteTable('personal_loans', {
   id: text('id').primaryKey(),
   borrower: encryptedText('borrower').notNull(),
+  profileId: text('profile_id').references(() => borrowerProfiles.id, { onDelete: 'set null' }),
+  title: text('title'),
+  disbursementTransactionId: text('disbursement_transaction_id').references(
+    () => transactions.id,
+    { onDelete: 'set null' },
+  ),
   principal: integer('principal').notNull(),
   lentOn: text('lent_on').notNull(),
   repaymentMode: text('repayment_mode').notNull().default('open'),
@@ -565,5 +571,52 @@ export const personalLoanRepayments = sqliteTable(
   (table) => [
     index('personal_loan_repayments_loan_idx').on(table.loanId),
     uniqueIndex('personal_loan_repayments_transaction_idx').on(table.transactionId),
+  ],
+);
+
+/** One financial profile can hold multiple independent IOUs and repayment schedules. */
+export const borrowerProfiles = sqliteTable('borrower_profiles', {
+  id: text('id').primaryKey(),
+  name: encryptedText('name').notNull(),
+  notes: encryptedText('notes'),
+  createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+  updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
+});
+
+/** Subsequent money lent on an existing IOU, separate from original principal. */
+export const personalLoanAdvances = sqliteTable(
+  'personal_loan_advances',
+  {
+    id: text('id').primaryKey(),
+    loanId: text('loan_id').notNull().references(() => personalLoans.id, { onDelete: 'cascade' }),
+    advancedOn: text('advanced_on').notNull(),
+    amount: integer('amount').notNull(),
+    notes: encryptedText('notes'),
+    transactionId: text('transaction_id').references(() => transactions.id, { onDelete: 'set null' }),
+    createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index('personal_loan_advances_loan_idx').on(table.loanId),
+    uniqueIndex('personal_loan_advances_tx_unique_idx').on(table.transactionId),
+  ],
+);
+
+/** Confirmed transaction contributions to goals; does not modify bank transactions. */
+export const goalTransactionLinks = sqliteTable(
+  'goal_transaction_links',
+  {
+    id: text('id').primaryKey(),
+    goalId: text('goal_id').notNull().references(() => goals.id, { onDelete: 'cascade' }),
+    transactionId: text('transaction_id').notNull().references(
+      () => transactions.id,
+      { onDelete: 'cascade' },
+    ),
+    /** Explicit signed contribution amount; split across goals with no over-allocation. */
+    appliedAmount: integer('applied_amount').notNull(),
+    createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index('goal_transaction_links_goal_idx').on(table.goalId),
+    uniqueIndex('goal_transaction_links_goal_tx_unique_idx').on(table.goalId, table.transactionId),
   ],
 );
