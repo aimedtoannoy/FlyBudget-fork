@@ -145,3 +145,110 @@ describe('personal loans REST API', () => {
     expect(db.select().from(transactions).all()).toHaveLength(3);
   });
 });
+
+describe('borrower profiles, multiple loans, extra credit and account matching', () => {
+  it('groups legacy same-name IOUs into a single profile without losing repayments', async () => {
+    db.insert(personalLoans).values([
+      { id: 'old-a', borrower: 'Existing Borrower', principal: 50000, lentOn: '2026-09-01' },
+      { id: 'old-b', borrower: ' existing borrower ', principal: 20000, lentOn: '2026-10-01' },
+    ]).run();
+    db.insert(personalLoanRepayments).values({
+      id: 'historical-payment', loanId: 'old-a', amount: 10000, paidOn: '2026-09-10',
+    }).run();
+    const profiles = (await call('GET', '/profiles')).body;
+    const profile = profiles.find((p: { name: string }) =>
+      p.name === 'Existing Borrower');
+    expect(profile).toMatchObject({ loanCount: 2, outstanding: 60000, repaid: 10000 });
+    const loans = (await call('GET', '/')).body;
+    expect(loans.filter((loan: { profileId: string }) => loan.profileId === profile.id))
+      .toHaveLength(2);
+    expect(loans.find((loan: { id: string }) => loan.id === 'old-a').repaid).toBe(10000);
+    expect(db.select().from(transactions).all()).toHaveLength(0);
+  });
+
+  it('creates multiple named loans for one person and allows profile rename without losing IDs', async () => {
+    const profile = await call('POST', '/profiles', {
+      name: 'Borrower 18', notes: 'Two separate loans',
+    });
+    expect(profile.status).toBe(201);
+    const first = await call('POST', '/', {
+      ...loanInput, borrower: 'Borrower 18', profileId: profile.body.id,
+      title: 'Truck repair', principal: 30000,
+    });
+    const second = await call('POST', '/', {
+      ...loanInput, borrower: 'Borrower 18', profileId: profile.body.id,
+      title: 'November advance', principal: 25000,
+    });
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(201);
+    expect(first.body.profileId).toBe(second.body.profileId);
+    expect(first.body.id).not.toBe(second.body.id);
+    const renamed = await call('PUT', `/profiles/${profile.body.id}`, {
+      name: 'Borrower 18 Updated',
+    });
+    expect(renamed.status).toBe(200);
+    const loans = (await call('GET', '/')).body;
+    expect(loans.filter((l: { profileId: string }) => l.profileId === profile.body.id)
+      .map((l: { title: string }) => l.title).sort()).toEqual([
+      'November advance', 'Truck repair',
+    ]);
+    expect(loans.find((l: { id: string }) => l.id === first.body.id).borrower)
+      .toBe('Borrower 18 Updated');
+    expect((await call('DELETE', `/profiles/${profile.body.id}`)).status).toBe(409);
+    expect(db.select().from(transactions).all()).toHaveLength(0);
+  });
+
+  it('additional credit increases outstanding without replacing original principal', async () => {
+    const created = await call('POST', '/', loanInput);
+    const id = created.body.id;
+    const advance = await call('POST', `/${id}/advances`, {
+      advancedOn: '2026-10-09', amount: 20000, notes: 'Extra loan', transactionId: null,
+    });
+    expect(advance.status).toBe(201);
+    expect(advance.body).toMatchObject({
+      principal: 50000, advanced: 20000, totalPrincipal: 70000,
+      outstanding: 70000,
+    });
+    const payment = await call('POST', `/${id}/repayments`, {
+      paidOn: '2026-10-11', amount: 60000,
+    });
+    expect(payment.body.outstanding).toBe(10000);
+    const advanceId = advance.body.advances[0].id;
+    expect((await call('DELETE', `/${id}/advances/${advanceId}`)).status).toBe(409);
+    const repaymentId = payment.body.repayments[0].id;
+    await call('DELETE', `/${id}/repayments/${repaymentId}`);
+    const removed = await call('DELETE', `/${id}/advances/${advanceId}`);
+    expect(removed.status).toBe(200);
+    expect(removed.body).toMatchObject({ totalPrincipal: 50000, outstanding: 50000 });
+  });
+
+  it('links only posted outflows with matching values and rejects IOU reuse', async () => {
+    db.insert(transactions).values([
+      { id: 'original-out', accountId: 'checking',
+        date: '2026-10-01', amount: -50000 },
+      { id: 'extra-out', accountId: 'checking', date: '2026-10-09', amount: -10000 },
+      { id: 'pending-out', accountId: 'checking', date: '2026-10-10',
+        amount: -20000, pending: 1 },
+    ]).run();
+    const loan = (await call('POST', '/', loanInput)).body;
+    const otherLoan = (await call('POST', '/', { ...loanInput, borrower: 'Other Borrower' })).body;
+    expect((await call('PUT', `/${loan.id}/disbursement`, {
+      transactionId: 'pending-out',
+    })).status).toBe(400);
+    expect((await call('PUT', `/${loan.id}/disbursement`, {
+      transactionId: 'original-out',
+    })).status).toBe(200);
+    expect((await call('PUT', `/${otherLoan.id}/disbursement`, {
+      transactionId: 'original-out',
+    })).status).toBe(409);
+    const added = await call('POST', `/${loan.id}/advances`, {
+      advancedOn: '2026-10-09', amount: 10000, transactionId: 'extra-out',
+    });
+    expect(added.status).toBe(201);
+    expect(added.body).toMatchObject({ outstanding: 60000, advanced: 10000 });
+    expect((await call('POST', `/${otherLoan.id}/advances`, {
+      advancedOn: '2026-10-09', amount: 10000, transactionId: 'extra-out',
+    })).status).toBe(409);
+    expect(db.select().from(transactions).all()).toHaveLength(3);
+  });
+});
