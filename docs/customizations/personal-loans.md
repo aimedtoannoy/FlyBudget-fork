@@ -9,7 +9,10 @@ the original bank or budget records.
 
 Open **Money Lent** → **Add person**. A profile has a name and private notes.
 Select the profile to see its own loan list and total still owed. You can rename
-the profile or move an existing loan between profiles via **Edit loan**.
+the profile or move an existing loan between profiles with **Edit / move loan**.
+Choose the correct person in the **Person** dropdown and save. This retains
+the loan's original database ID, all repayments, extra credit, notes, linked
+bank entries and schedule. It does not alter any underlying bank transactions.
 
 **Existing installation migration:** Previously created IOUs are preserved
 and automatically associated with a profile based on their existing borrower

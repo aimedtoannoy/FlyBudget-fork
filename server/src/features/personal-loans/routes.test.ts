@@ -214,6 +214,53 @@ describe('borrower profiles, multiple loans, extra credit and account matching',
     expect(secondLoan.body.profileId).toBe(second.body.id);
   });
 
+  it('moves an old IOU to the correct person without deleting payments, notes or bank links', async () => {
+    db.insert(transactions).values({
+      id: 'historical-bank-inflow', accountId: 'checking', date: '2026-10-15',
+      amount: 15000,
+    }).run();
+    db.insert(personalLoans).values({
+      id: 'old-loan-id', borrower: 'Imported Borrower',
+      principal: 50000, lentOn: '2026-09-01', notes: 'Original agreement',
+    }).run();
+    db.insert(personalLoanRepayments).values({
+      id: 'old-repayment-id', loanId: 'old-loan-id',
+      paidOn: '2026-10-15', amount: 15000,
+      notes: 'Original repayment',
+      transactionId: 'historical-bank-inflow',
+    }).run();
+    const old = (await call('GET', '/')).body.find(
+      (l: { id: string }) => l.id === 'old-loan-id',
+    );
+    expect(old).toMatchObject({ outstanding: 35000, repaid: 15000 });
+    const correct = await call('POST', '/profiles', {
+      name: 'Correct Person', notes: null,
+    });
+    expect(correct.status).toBe(201);
+    // This is the existing Edit / Move workflow, preserving every other property.
+    const moved = await call('PUT', '/old-loan-id', {
+      profileId: correct.body.id, borrower: correct.body.name,
+    });
+    expect(moved.status).toBe(200);
+    expect(moved.body).toMatchObject({
+      id: 'old-loan-id', profileId: correct.body.id, borrower: 'Correct Person',
+      principal: 50000, repaid: 15000, outstanding: 35000,
+      notes: 'Original agreement',
+    });
+    expect(moved.body.repayments).toEqual([
+      expect.objectContaining({
+        id: 'old-repayment-id', loanId: 'old-loan-id',
+        amount: 15000, transactionId: 'historical-bank-inflow',
+      }),
+    ]);
+    const people = (await call('GET', '/profiles')).body;
+    expect(people.find((p: { id: string }) => p.id === correct.body.id))
+      .toMatchObject({ loanCount: 1, outstanding: 35000 });
+    expect(db.select().from(transactions).all()).toHaveLength(1);
+    expect(db.select().from(personalLoans).all()).toHaveLength(1);
+    expect(db.select().from(personalLoanRepayments).all()).toHaveLength(1);
+  });
+
   it('additional credit increases outstanding without replacing original principal', async () => {
     const created = await call('POST', '/', loanInput);
     const id = created.body.id;

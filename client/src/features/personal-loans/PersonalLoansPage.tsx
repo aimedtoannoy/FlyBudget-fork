@@ -93,6 +93,10 @@ function LoanCard({
           <Button size="sm" variant="secondary" onClick={onOriginal}>
             {loan.disbursementTransactionId ? 'Original transaction linked' : 'Link original transaction'}
           </Button>
+          <Button size="sm" variant="secondary" onClick={onEdit}>
+            <UserRound size={13} /> Edit / move loan
+          </Button>
+          {/* Moving uses the existing edit screen, which preserves the loan ID and ledger. */}
           <Button size="sm" variant="ghost" onClick={onEdit}>
             <Pencil size={13} /> Edit
           </Button>
@@ -395,7 +399,7 @@ export default function PersonalLoansPage() {
         </Modal>
       )}
       {loanEditor && current && (
-        <Modal isOpen title={loanEditor === 'new' ? 'Add loan' : 'Edit loan'}
+        <Modal isOpen title={loanEditor === 'new' ? 'Add loan' : 'Edit / move loan to person'}
           onClose={() => setLoanEditor(null)} size="lg">
           <LoanForm
             key={loanEditor === 'new' ? 'new' : loanEditor.id}

@@ -113,6 +113,13 @@ export function LoanForm({
         <select className={field} value={profileId} onChange={(e) => setProfileId(e.target.value)}>
           {profiles.map((p) => <option value={p.id} key={p.id}>{p.name}</option>)}
         </select>
+        {loan && (
+          <span className="text-xs font-normal text-text-tertiary">
+            To transfer this existing loan to a different person's profile,
+            select the person here and save. All previous repayments, extra credit,
+            bank links and the original loan ID are preserved.
+          </span>
+        )}
       </label>
       <label className={label}>
         Loan name / purpose
