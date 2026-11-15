@@ -96,10 +96,6 @@ function LoanCard({
           <Button size="sm" variant="secondary" onClick={onEdit}>
             <UserRound size={13} /> Edit / move loan
           </Button>
-          {/* Moving uses the existing edit screen, which preserves the loan ID and ledger. */}
-          <Button size="sm" variant="ghost" onClick={onEdit}>
-            <Pencil size={13} /> Edit
-          </Button>
           <Button size="sm" variant="ghost" onClick={() => setHistoryOpen(!historyOpen)}>
             {historyOpen ? 'Hide' : 'Show'} history
           </Button>
