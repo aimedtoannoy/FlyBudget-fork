@@ -198,6 +198,22 @@ describe('borrower profiles, multiple loans, extra credit and account matching',
     expect(db.select().from(transactions).all()).toHaveLength(0);
   });
 
+  it('allows different people sharing the same name to have distinct financial profiles', async () => {
+    const first = await call('POST', '/profiles', { name: 'Same Name', notes: 'Person A' });
+    const second = await call('POST', '/profiles', { name: 'Same Name', notes: 'Person B' });
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(201);
+    expect(first.body.id).not.toBe(second.body.id);
+    const firstLoan = await call('POST', '/', {
+      ...loanInput, borrower: 'Same Name', profileId: first.body.id, title: 'First account',
+    });
+    const secondLoan = await call('POST', '/', {
+      ...loanInput, borrower: 'Same Name', profileId: second.body.id, title: 'Second account',
+    });
+    expect(firstLoan.body.profileId).toBe(first.body.id);
+    expect(secondLoan.body.profileId).toBe(second.body.id);
+  });
+
   it('additional credit increases outstanding without replacing original principal', async () => {
     const created = await call('POST', '/', loanInput);
     const id = created.body.id;

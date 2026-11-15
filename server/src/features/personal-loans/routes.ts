@@ -169,7 +169,7 @@ personalLoansRouter.get('/profiles', (_req, res) => {
       loanCount: own.length,
       outstanding: own.reduce((v, loan) => v + loan.outstanding, 0),
       repaid: own.reduce((v, loan) => v + loan.repaid, 0),
-      advanced: own.reduce((v, loan) => v + loan.totalPrincipal, 0),
+      totalLent: own.reduce((v, loan) => v + loan.totalPrincipal, 0),
     };
   }).sort((a, b) => a.name.localeCompare(b.name)));
 });

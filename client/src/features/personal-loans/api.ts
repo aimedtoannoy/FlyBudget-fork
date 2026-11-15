@@ -10,7 +10,7 @@ export type BorrowerProfile = {
   loanCount: number;
   outstanding: number;
   repaid: number;
-  advanced: number;
+  totalLent: number;
 };
 
 export type LoanAdvance = {
