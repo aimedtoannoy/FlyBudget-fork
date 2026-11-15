@@ -18,6 +18,7 @@ import RecurringTransactionsPage from './pages/RecurringTransactions';
 import SettingsPage from './pages/Settings';
 import GoalsPage from './pages/Goals';
 import PersonalLoansPage from './features/personal-loans/PersonalLoansPage';
+import BorrowerProfilePage from './features/personal-loans/BorrowerProfilePage';
 import CashFlowPage from './pages/CashFlow';
 import CategoryDetailPage from './pages/CategoryDetail';
 
@@ -52,6 +53,7 @@ export default function App() {
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/goals" element={<GoalsPage />} />
           <Route path="/money-lent" element={<PersonalLoansPage />} />
+            <Route path="/money-lent/people/:profileId" element={<BorrowerProfilePage />} />
           </Route>
         </Routes>
       </Router>
