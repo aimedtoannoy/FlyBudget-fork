@@ -622,3 +622,21 @@ export const goalTransactionLinks = sqliteTable(
     uniqueIndex('goal_transaction_links_goal_tx_unique_idx').on(table.goalId, table.transactionId),
   ],
 );
+
+/**
+ * Non-cash credit/forgiveness applied to an IOU.
+ * Unlike advances (money lent) or repayments (cash received), these only
+ * reduce the receivable. Existing loans and ledger events remain unchanged.
+ */
+export const personalLoanCredits = sqliteTable(
+  'personal_loan_credits',
+  {
+    id: text('id').primaryKey(),
+    loanId: text('loan_id').notNull().references(() => personalLoans.id, { onDelete: 'cascade' }),
+    appliedOn: text('applied_on').notNull(),
+    amount: integer('amount').notNull(),
+    notes: encryptedText('notes'),
+    createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+  },
+  (table) => [index('personal_loan_credits_loan_idx').on(table.loanId)],
+);

@@ -8,6 +8,7 @@ import {
   borrowerProfiles,
   personalLoans,
   personalLoanAdvances,
+  personalLoanCredits,
   personalLoanRepayments,
 } from '../../db/schema.js';
 import { bankCandidates, bankTransaction } from '../transaction-links/bankCandidates.js';
@@ -128,29 +129,42 @@ function allLoans() {
     .orderBy(desc(personalLoanRepayments.paidOn)).all();
   const advances = db.select().from(personalLoanAdvances)
     .orderBy(desc(personalLoanAdvances.advancedOn)).all();
+  const credits = db.select().from(personalLoanCredits)
+    .orderBy(desc(personalLoanCredits.appliedOn)).all();
   const today = format(new Date(), 'yyyy-MM-dd');
   return rows.map((loan) => {
     const repayments = payments.filter((p) => p.loanId === loan.id);
-    const credits = advances.filter((p) => p.loanId === loan.id);
+    const extraLending = advances.filter((p) => p.loanId === loan.id);
+    const appliedCredits = credits.filter((p) => p.loanId === loan.id);
     const repaid = repayments.reduce((sum, p) => sum + p.amount, 0);
-    const advanced = credits.reduce((sum, p) => sum + p.amount, 0);
+    const advanced = extraLending.reduce((sum, p) => sum + p.amount, 0);
+    const credited = appliedCredits.reduce((sum, p) => sum + p.amount, 0);
     const totalPrincipal = loan.principal + advanced;
     return {
       ...loan,
       borrower: (loan.profileId ? profiles.get(loan.profileId)?.name : null) ?? loan.borrower,
       title: loan.title ?? `Loan · ${loan.lentOn}`,
-      advances: credits,
+      advances: extraLending,
       advanced,
       totalPrincipal,
       repayments,
       repaid,
-      ...loanProgress({
-        ...loan,
-        principal: totalPrincipal,
-        repaid,
-        repaymentMode: loan.repaymentMode as LoanMode,
-        cadence: loan.cadence as LoanCadence | null,
-      }, today),
+      credits: appliedCredits,
+      credited,
+      // Credits satisfy debt without being counted as cash repayment.
+      ...(() => {
+        const progress = loanProgress({
+          ...loan,
+          principal: totalPrincipal,
+          repaid: repaid + credited,
+          repaymentMode: loan.repaymentMode as LoanMode,
+          cadence: loan.cadence as LoanCadence | null,
+        }, today);
+        return {
+          ...progress,
+          status: progress.outstanding === 0 && credited > 0 ? 'settled' : progress.status,
+        };
+      })(),
     };
   });
 }
@@ -169,6 +183,7 @@ personalLoansRouter.get('/profiles', (_req, res) => {
       loanCount: own.length,
       outstanding: own.reduce((v, loan) => v + loan.outstanding, 0),
       repaid: own.reduce((v, loan) => v + loan.repaid, 0),
+      credited: own.reduce((v, loan) => v + loan.credited, 0),
       totalLent: own.reduce((v, loan) => v + loan.totalPrincipal, 0),
     };
   }).sort((a, b) => a.name.localeCompare(b.name)));
@@ -252,7 +267,11 @@ personalLoansRouter.put('/:id', (req, res) => {
     total: sql<number>`coalesce(sum(${personalLoanRepayments.amount}), 0)`,
   }).from(personalLoanRepayments)
     .where(eq(personalLoanRepayments.loanId, original.id)).get()?.total ?? 0;
-  if (parsed.data.principal + advancesTotal < repaid) {
+  const credited = db.select({
+    total: sql<number>`coalesce(sum(${personalLoanCredits.amount}), 0)`,
+  }).from(personalLoanCredits)
+    .where(eq(personalLoanCredits.loanId, original.id)).get()?.total ?? 0;
+  if (parsed.data.principal + advancesTotal < repaid + credited) {
     return res.status(409).json({ error: 'Principal cannot be less than recorded repayments' });
   }
   db.update(personalLoans)
@@ -355,9 +374,50 @@ personalLoansRouter.delete('/:id/advances/:advanceId', (req, res) => {
     and(eq(personalLoanAdvances.id, req.params.advanceId), eq(personalLoanAdvances.loanId, loan.id)),
   ).get();
   if (!credit) return res.status(404).json({ error: 'Credit not found' });
-  if (loan.totalPrincipal - credit.amount < loan.repaid)
+  if (loan.totalPrincipal - credit.amount < loan.repaid + loan.credited)
     return res.status(409).json({ error: 'Cannot remove credit already covered by repayments' });
   db.delete(personalLoanAdvances).where(eq(personalLoanAdvances.id, credit.id)).run();
+  res.json(getLoan(loan.id));
+});
+
+/**
+ * Apply a non-cash credit: discount, forgiveness, offset, substitution.
+ * No bank transaction and no cash repayment is recorded.
+ */
+const creditInput = z.object({
+  appliedOn: isoDate,
+  amount: money,
+  notes: notes.default(null),
+});
+
+personalLoansRouter.post('/:id/credits', (req, res) => {
+  const loan = getLoan(req.params.id);
+  if (!loan) return res.status(404).json({ error: 'Loan not found' });
+  const parsed = creditInput.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  const credit = parsed.data;
+  if (credit.appliedOn < loan.lentOn) {
+    return res.status(400).json({ error: 'Credit predates the original loan' });
+  }
+  if (credit.amount > loan.outstanding) {
+    return res.status(409).json({ error: 'Credit exceeds the amount currently owed' });
+  }
+  db.insert(personalLoanCredits).values({
+    id: nanoid(),
+    loanId: loan.id,
+    ...credit,
+  }).run();
+  res.status(201).json(getLoan(loan.id));
+});
+
+personalLoansRouter.delete('/:id/credits/:creditId', (req, res) => {
+  const loan = getLoan(req.params.id);
+  if (!loan) return res.status(404).json({ error: 'Loan not found' });
+  const credit = db.select({ id: personalLoanCredits.id }).from(personalLoanCredits)
+    .where(and(eq(personalLoanCredits.id, req.params.creditId),
+      eq(personalLoanCredits.loanId, loan.id))).get();
+  if (!credit) return res.status(404).json({ error: 'Applied credit not found' });
+  db.delete(personalLoanCredits).where(eq(personalLoanCredits.id, credit.id)).run();
   res.json(getLoan(loan.id));
 });
 
