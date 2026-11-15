@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  AlertCircle, ArrowLeft, CalendarClock, CheckCircle2, HandCoins,
+  AlertCircle, ArrowLeft, CalendarClock, CheckCircle2,
   Pencil, Plus, Trash2, UserRound,
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
