@@ -61,8 +61,6 @@ export type PersonalLoan = {
 export type LoanInput = Pick<
   PersonalLoan,
   | 'borrower'
-  | 'profileId'
-  | 'title'
   | 'principal'
   | 'lentOn'
   | 'repaymentMode'
@@ -71,7 +69,7 @@ export type LoanInput = Pick<
   | 'installmentAmount'
   | 'remindersEnabled'
   | 'notes'
->;
+> & { profileId?: string | null; title?: string | null };
 
 export type RepaymentInput = {
   paidOn: string;
