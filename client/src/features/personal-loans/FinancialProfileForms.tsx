@@ -6,7 +6,7 @@ import { useCanSave } from '../../hooks/useConnection';
 import { centsToInput, formatCurrency, isUnreadableAmount, parseCents } from '../../utils/currency';
 import * as api from './api';
 import type {
-  BorrowerProfile, LoanAdvanceInput, LoanCadence, LoanInput, LoanMode,
+  BorrowerProfile, LoanAdvanceInput, LoanCadence, LoanCreditInput, LoanInput, LoanMode,
   PersonalLoan, RepaymentInput,
 } from './api';
 
@@ -204,17 +204,17 @@ export function EventForm({
   busy: boolean;
   error?: string | null;
 }) {
-  const isCredit = kind === 'advance';
+  const isAdvance = kind === 'advance';
   const [method, setMethod] = useState<'manual' | 'bank'>('manual');
   const [search, setSearch] = useState('');
   const [transactionId, setTransactionId] = useState('');
-  const [amount, setAmount] = useState(centsToInput(isCredit ? 0 : loan.outstanding));
+  const [amount, setAmount] = useState(centsToInput(isAdvance ? 0 : loan.outstanding));
   const [date, setDate] = useState(today());
   const [notes, setNotes] = useState('');
   const [invalid, setInvalid] = useState('');
   const { data: candidates = [] } = useQuery({
     queryKey: ['loan-bank-candidates', loan.id, kind, search],
-    queryFn: () => isCredit ? api.loanOutflows(loan.id, search) : api.depositsForLoan(loan.id, search),
+    queryFn: () => isAdvance ? api.loanOutflows(loan.id, search) : api.depositsForLoan(loan.id, search),
     enabled: method === 'bank',
   });
   const selected = candidates.find((c) => c.id === transactionId);
@@ -226,17 +226,17 @@ export function EventForm({
     const cents = method === 'bank' ? selected!.amount : parseCents(amount);
     const when = method === 'bank' ? selected!.date : date;
     if (!Number.isSafeInteger(cents) || cents <= 0 ||
-      (!isCredit && cents > loan.outstanding)) {
+      (!isAdvance && cents > loan.outstanding)) {
       return setInvalid('Enter an amount greater than zero and within the remaining loan balance.');
     }
     const common = { amount: cents, notes: notes.trim() || null, transactionId: method === 'bank' ? selected!.id : null };
-    onSubmit(isCredit ? { ...common, advancedOn: when } : { ...common, paidOn: when });
+    onSubmit(isAdvance ? { ...common, advancedOn: when } : { ...common, paidOn: when });
   }
 
   return (
     <form onSubmit={submit} className="space-y-4">
       <p className="text-sm text-text-secondary">
-        {isCredit ? 'Additional money you lend increases the amount owed on this loan.' :
+        {isAdvance ? 'Additional money you lend increases the amount owed on this loan.' :
           `Currently owed: ${formatCurrency(loan.outstanding)}`}
       </p>
       <label className={label}>
@@ -244,7 +244,7 @@ export function EventForm({
         <select className={field} value={method}
           onChange={(e) => { setMethod(e.target.value as 'manual' | 'bank'); setTransactionId(''); }}>
           <option value="manual">Record manually / cash</option>
-          <option value="bank">{isCredit ? 'Link posted bank outflow' : 'Link posted bank deposit'}</option>
+          <option value="bank">{isAdvance ? 'Link posted bank outflow' : 'Link posted bank deposit'}</option>
         </select>
       </label>
       {method === 'manual' ? (
@@ -292,7 +292,7 @@ export function EventForm({
       </label>
       {(invalid || error) && <p role="alert" className="text-sm text-negative">{invalid || error}</p>}
       <Actions busy={busy} onCancel={onCancel}
-        saveLabel={isCredit ? 'Add credit' : 'Record repayment'} />
+        saveLabel={isAdvance ? 'Add to loan' : 'Record repayment'} />
     </form>
   );
 }
@@ -341,6 +341,58 @@ export function OriginalOutflowForm({
         <Button variant="secondary" onClick={close}>Cancel</Button>
         <Button type="submit" disabled={!canSave || busy}>{busy ? 'Saving…' : 'Save link'}</Button>
       </div>
+    </form>
+  );
+}
+
+// A non-cash credit is never associated with a posted bank transaction.
+export function ApplyCreditForm({
+  loan, onCancel, onSubmit, busy, error,
+}: {
+  loan: PersonalLoan;
+  onCancel: () => void;
+  onSubmit: (body: LoanCreditInput) => void;
+  busy: boolean;
+  error?: string | null;
+}) {
+  const [amount, setAmount] = useState('');
+  const [appliedOn, setAppliedOn] = useState(today());
+  const [notes, setNotes] = useState('');
+  const [invalid, setInvalid] = useState('');
+  function submit(e: FormEvent) {
+    e.preventDefault();
+    if (isUnreadableAmount(amount)) return setInvalid('Enter a valid credit amount.');
+    const cents = parseCents(amount);
+    if (!Number.isSafeInteger(cents) || cents <= 0 || cents > loan.outstanding) {
+      return setInvalid('Credit must be positive and cannot exceed the amount currently owed.');
+    }
+    setInvalid('');
+    onSubmit({ amount: cents, appliedOn, notes: notes.trim() || null });
+  }
+  return (
+    <form className="space-y-4" onSubmit={submit}>
+      <p className="text-sm text-text-secondary">
+        An applied credit reduces what this person owes, without recording a cash payment
+        or adding new money to the loan. Outstanding: {formatCurrency(loan.outstanding)}.
+      </p>
+      <label className={label}>
+        Credit amount
+        <input className={field} inputMode="decimal" value={amount}
+          onChange={(e) => setAmount(e.target.value)} required placeholder="0.00" />
+      </label>
+      <label className={label}>
+        Date applied
+        <input className={field} type="date" value={appliedOn} min={loan.lentOn}
+          onChange={(e) => setAppliedOn(e.target.value)} required />
+      </label>
+      <label className={label}>
+        Reason / notes (optional)
+        <textarea className={field} rows={3} maxLength={5000} value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Forgiven amount, substitution, discount, adjustment…" />
+      </label>
+      {(invalid || error) && <p role="alert" className="text-sm text-negative">{invalid || error}</p>}
+      <Actions onCancel={onCancel} busy={busy} saveLabel="Apply credit" />
     </form>
   );
 }

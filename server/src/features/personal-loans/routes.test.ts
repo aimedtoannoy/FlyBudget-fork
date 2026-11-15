@@ -315,3 +315,76 @@ describe('borrower profiles, multiple loans, extra credit and account matching',
     expect(db.select().from(transactions).all()).toHaveLength(3);
   });
 });
+
+describe('non-cash applied credits versus additional lending', () => {
+  it('leaves old advances and cash repayments untouched and settles only outstanding debt', async () => {
+    const loan = (await call('POST', '/', {
+      ...loanInput, principal: 10000,
+    })).body;
+    const add = await call('POST', `/${loan.id}/advances`, {
+      advancedOn: '2026-10-03', amount: 10000, notes: 'Lent more',
+    });
+    expect(add.status).toBe(201);
+    const payment = await call('POST', `/${loan.id}/repayments`, {
+      paidOn: '2026-10-10', amount: 10000, notes: 'Cash received',
+    });
+    expect(payment.body).toMatchObject({
+      principal: 10000, advanced: 10000, repaid: 10000, outstanding: 10000,
+    });
+    expect((await call('POST', `/${loan.id}/credits`, {
+      appliedOn: '2026-10-11', amount: 10001, notes: 'Too much',
+    })).status).toBe(409);
+    const applied = await call('POST', `/${loan.id}/credits`, {
+      appliedOn: '2026-10-11', amount: 10000, notes: 'Class A substitution',
+    });
+    expect(applied.status).toBe(201);
+    expect(applied.body).toMatchObject({
+      principal: 10000,
+      totalPrincipal: 20000,
+      advanced: 10000,
+      repaid: 10000,
+      credited: 10000,
+      outstanding: 0,
+      status: 'settled',
+    });
+    expect(applied.body.credits).toEqual([
+      expect.objectContaining({ amount: 10000, notes: 'Class A substitution' }),
+    ]);
+    expect(applied.body.repayments).toHaveLength(1);
+    expect(applied.body.advances).toHaveLength(1);
+    expect(db.select().from(transactions).all()).toHaveLength(0);
+    const creditId = applied.body.credits[0].id;
+    const removed = await call('DELETE', `/${loan.id}/credits/${creditId}`);
+    expect(removed.body).toMatchObject({
+      repaid: 10000, credited: 0, outstanding: 10000,
+    });
+  });
+
+  it('does not count debt forgiveness as payment and prevents overpaying or over-crediting', async () => {
+    const loan = (await call('POST', '/', {
+      ...loanInput, principal: 50000,
+    })).body;
+    const credit = await call('POST', `/${loan.id}/credits`, {
+      appliedOn: '2026-10-05', amount: 35000, notes: 'Write-off',
+    });
+    expect(credit.body).toMatchObject({
+      repaid: 0, credited: 35000, outstanding: 15000,
+    });
+    expect((await call('POST', `/${loan.id}/repayments`, {
+      paidOn: '2026-10-06', amount: 16000,
+    })).status).toBe(409);
+    expect((await call('POST', `/${loan.id}/credits`, {
+      appliedOn: '2026-10-06', amount: 16000,
+    })).status).toBe(409);
+    expect((await call('PUT', `/${loan.id}`, {
+      principal: 34999,
+    })).status).toBe(409);
+    const cash = await call('POST', `/${loan.id}/repayments`, {
+      paidOn: '2026-10-06', amount: 15000,
+    });
+    expect(cash.body).toMatchObject({
+      repaid: 15000, credited: 35000, outstanding: 0, status: 'settled',
+    });
+    expect(db.select().from(transactions).all()).toHaveLength(0);
+  });
+});

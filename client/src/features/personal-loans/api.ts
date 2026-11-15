@@ -10,6 +10,7 @@ export type BorrowerProfile = {
   loanCount: number;
   outstanding: number;
   repaid: number;
+  credited: number;
   totalLent: number;
 };
 
@@ -19,6 +20,14 @@ export type LoanAdvance = {
   amount: number;
   advancedOn: string;
   transactionId: string | null;
+  notes: string | null;
+};
+
+export type LoanCredit = {
+  id: string;
+  loanId: string;
+  appliedOn: string;
+  amount: number;
   notes: string | null;
 };
 
@@ -41,6 +50,8 @@ export type PersonalLoan = {
   advanced: number;
   totalPrincipal: number;
   advances: LoanAdvance[];
+  credits: LoanCredit[];
+  credited: number;
   lentOn: string;
   repaymentMode: LoanMode;
   firstDueOn: string | null;
@@ -53,7 +64,7 @@ export type PersonalLoan = {
   expectedPaid: number;
   overdueAmount: number;
   nextDueOn: string | null;
-  status: 'active' | 'overdue' | 'repaid';
+  status: 'active' | 'overdue' | 'repaid' | 'settled';
   reminder: boolean;
   repayments: LoanRepayment[];
 };
@@ -145,5 +156,21 @@ export const addAdvance = (id: string, body: LoanAdvanceInput) =>
   });
 export const deleteAdvance = (id: string, creditId: string) =>
   apiFetch<PersonalLoan>(`/personal-loans/${id}/advances/${creditId}`, {
+    method: 'DELETE',
+  });
+
+/** Forgiven or adjusted debt, never a cash payment or a new loan. */
+export type LoanCreditInput = {
+  appliedOn: string;
+  amount: number;
+  notes: string | null;
+};
+
+export const applyLoanCredit = (id: string, body: LoanCreditInput) =>
+  apiFetch<PersonalLoan>(`/personal-loans/${id}/credits`, {
+    method: 'POST', body: JSON.stringify(body),
+  });
+export const deleteLoanCredit = (id: string, creditId: string) =>
+  apiFetch<PersonalLoan>(`/personal-loans/${id}/credits/${creditId}`, {
     method: 'DELETE',
   });
