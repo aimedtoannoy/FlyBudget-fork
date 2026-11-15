@@ -5,7 +5,8 @@ import { useGoals, useCreateGoal, useUpdateGoal, useDeleteGoal } from '../hooks/
 import { useAccounts } from '../hooks/useAccounts';
 import { GoalFormModal } from '../components/goals/GoalFormModal';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
-import { useModalValue } from '../components/ui/Modal';
+import { Modal, useModalValue } from '../components/ui/Modal';
+import { GoalTransactionsPanel } from '../features/transaction-links/GoalTransactionsPanel';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
 import { docsUrl } from '../utils/project';
@@ -18,9 +19,9 @@ import type { Goal } from '../types';
 import { formatDay } from '../utils/dates';
 
 function progressOf(goal: Goal) {
-  const pct =
-    goal.targetAmount > 0 ? Math.min(100, (goal.currentAmount / goal.targetAmount) * 100) : 0;
-  return { pct, remaining: Math.max(0, goal.targetAmount - goal.currentAmount) };
+  const tracked = goal.trackedAmount ?? goal.currentAmount;
+  const pct = goal.targetAmount > 0 ? Math.max(0, Math.min(100, (tracked / goal.targetAmount) * 100)) : 0;
+  return { pct, remaining: Math.max(0, goal.targetAmount - tracked) };
 }
 
 /** Target date status, plus the monthly amount needed to get there on time (Monarch-style). */
@@ -55,11 +56,13 @@ function GoalRow({
   accountName,
   onEdit,
   onDelete,
+  onLink,
 }: {
   goal: Goal;
   accountName: string | null;
   onEdit: () => void;
   onDelete: () => void;
+  onLink: () => void;
 }) {
   const { pct, remaining } = progressOf(goal);
   const complete = remaining === 0 && goal.targetAmount > 0;
@@ -79,7 +82,7 @@ function GoalRow({
         </div>
         <div className="text-right shrink-0">
           <span className="text-sm font-medium tabular-nums text-text block">
-            {formatCurrency(goal.currentAmount)}
+            {formatCurrency(goal.trackedAmount ?? goal.currentAmount)}
           </span>
           <span className="text-xs text-text-tertiary tabular-nums block mt-0.5">
             of {formatCurrency(goal.targetAmount)}
@@ -89,6 +92,7 @@ function GoalRow({
           <RowMenu
             items={[
               { label: 'Edit goal', onClick: onEdit },
+              { label: 'Link transactions', onClick: onLink },
               { label: 'Delete goal', onClick: onDelete, danger: true },
             ]}
           />
@@ -135,6 +139,7 @@ function GoalGroup({
   accountNames,
   onEdit,
   onDelete,
+  onLink,
   defaultCollapsed = false,
 }: {
   label: string;
@@ -142,10 +147,11 @@ function GoalGroup({
   accountNames: Map<string, string>;
   onEdit: (g: Goal) => void;
   onDelete: (g: Goal) => void;
+  onLink: (g: Goal) => void;
   defaultCollapsed?: boolean;
 }) {
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
-  const saved = goals.reduce((s, g) => s + g.currentAmount, 0);
+  const saved = goals.reduce((s, g) => s + (g.trackedAmount ?? g.currentAmount), 0);
 
   return (
     <Card padding="none">
@@ -177,6 +183,7 @@ function GoalGroup({
               accountName={goal.accountId ? (accountNames.get(goal.accountId) ?? null) : null}
               onEdit={() => onEdit(goal)}
               onDelete={() => onDelete(goal)}
+              onLink={() => onLink(goal)}
             />
           ))}
         </div>
@@ -196,12 +203,14 @@ export default function GoalsPage() {
   const [editGoal, setEditGoal] = useState<Goal | null>(null);
   const editModal = useModalValue(editGoal);
   const [deleting, setDeleting] = useState<Goal | null>(null);
+  const [linkingGoal, setLinkingGoal] = useState<Goal | null>(null);
+  const activeLinkedGoal = goals.find((g) => g.id === linkingGoal?.id) ?? linkingGoal;
 
   const accountNames = useMemo(() => new Map(accounts.map((a) => [a.id, a.name])), [accounts]);
   const inProgress = goals.filter((g) => progressOf(g).remaining > 0 || g.targetAmount <= 0);
   const completed = goals.filter((g) => progressOf(g).remaining === 0 && g.targetAmount > 0);
 
-  const totalSaved = goals.reduce((s, g) => s + g.currentAmount, 0);
+  const totalSaved = goals.reduce((s, g) => s + (g.trackedAmount ?? g.currentAmount), 0);
   const totalTarget = goals.reduce((s, g) => s + g.targetAmount, 0);
   const leftToSave = goals.reduce((s, g) => s + progressOf(g).remaining, 0);
   const overallPct = totalTarget > 0 ? Math.floor((totalSaved / totalTarget) * 100) : 0;
@@ -271,6 +280,8 @@ export default function GoalsPage() {
                 accountNames={accountNames}
                 onEdit={setEditGoal}
                 onDelete={setDeleting}
+                onLink={setLinkingGoal}
+                onLink={setLinkingGoal}
               />
             )}
             {completed.length > 0 && (
@@ -302,6 +313,16 @@ export default function GoalsPage() {
         />
       )}
 
+      {activeLinkedGoal && (
+        <Modal
+          isOpen
+          onClose={() => setLinkingGoal(null)}
+          title={`Transactions for ${activeLinkedGoal.name}`}
+          size="xl"
+        >
+          <GoalTransactionsPanel key={activeLinkedGoal.id} goal={activeLinkedGoal} />
+        </Modal>
+      )}
       <ConfirmModal
         isOpen={deleting !== null}
         onClose={() => setDeleting(null)}

@@ -104,7 +104,7 @@ export function GoalFormModal({ isOpen, onClose, onSave, editGoal }: Props) {
             />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-text-secondary">Saved so far</label>
+            <label className="text-sm font-medium text-text-secondary">Manual saved amount</label>
             <CurrencyInput
               value={currentAmount}
               onChange={setCurrentAmount}
@@ -114,6 +114,10 @@ export function GoalFormModal({ isOpen, onClose, onSave, editGoal }: Props) {
           </div>
         </div>
 
+        <p className="text-xs text-text-tertiary">
+          Linked bank transactions are counted separately from the manual amount to avoid
+          double-counting. Add transactions through the goal's Link transactions menu.
+        </p>
         <div className="space-y-1.5">
           <label className="text-sm font-medium text-text-secondary">Target date (optional)</label>
           <input

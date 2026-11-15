@@ -95,8 +95,10 @@ export const editLoan = (id: string, body: LoanInput) =>
   });
 export const deleteLoan = (id: string) =>
   apiFetch<void>(`/personal-loans/${id}`, { method: 'DELETE' });
-export const depositsForLoan = (id: string) =>
-  apiFetch<DepositCandidate[]>(`/personal-loans/${id}/deposits`);
+export const depositsForLoan = (id: string, search = '') =>
+  apiFetch<DepositCandidate[]>(
+    `/personal-loans/${id}/deposits?search=${encodeURIComponent(search)}`,
+  );
 export const repayLoan = (id: string, body: RepaymentInput) =>
   apiFetch<PersonalLoan>(`/personal-loans/${id}/repayments`, {
     method: 'POST',

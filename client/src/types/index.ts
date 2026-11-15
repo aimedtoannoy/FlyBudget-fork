@@ -753,6 +753,10 @@ export interface Goal {
   name: string;
   targetAmount: number;
   currentAmount: number;
+  /** Goal transaction linking never changes the manually entered currentAmount. */
+  linkedAmount?: number;
+  trackedAmount?: number;
+  linkedTransactionCount?: number;
   targetDate: string | null;
   accountId: string | null;
   icon: string;
