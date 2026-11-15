@@ -140,6 +140,14 @@ function allLoans() {
     const advanced = extraLending.reduce((sum, p) => sum + p.amount, 0);
     const credited = appliedCredits.reduce((sum, p) => sum + p.amount, 0);
     const totalPrincipal = loan.principal + advanced;
+    // Credits satisfy the debt without being counted as cash actually received.
+    const progress = loanProgress({
+      ...loan,
+      principal: totalPrincipal,
+      repaid: repaid + credited,
+      repaymentMode: loan.repaymentMode as LoanMode,
+      cadence: loan.cadence as LoanCadence | null,
+    }, today);
     return {
       ...loan,
       borrower: (loan.profileId ? profiles.get(loan.profileId)?.name : null) ?? loan.borrower,
@@ -151,20 +159,8 @@ function allLoans() {
       repaid,
       credits: appliedCredits,
       credited,
-      // Credits satisfy debt without being counted as cash repayment.
-      ...(() => {
-        const progress = loanProgress({
-          ...loan,
-          principal: totalPrincipal,
-          repaid: repaid + credited,
-          repaymentMode: loan.repaymentMode as LoanMode,
-          cadence: loan.cadence as LoanCadence | null,
-        }, today);
-        return {
-          ...progress,
-          status: progress.outstanding === 0 && credited > 0 ? 'settled' : progress.status,
-        };
-      })(),
+      ...progress,
+      status: progress.outstanding === 0 && credited > 0 ? 'settled' : progress.status,
     };
   });
 }
