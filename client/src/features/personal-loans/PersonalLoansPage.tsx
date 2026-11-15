@@ -1,397 +1,66 @@
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { format } from 'date-fns';
-import { AlertCircle, CalendarClock, HandCoins, Plus, Pencil, Trash2, CheckCircle2 } from 'lucide-react';
-import { useCanSave } from '../../hooks/useConnection';
+import { AlertCircle, CalendarClock, CheckCircle2, HandCoins, Pencil, Plus, Trash2, UserRound } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { ConfirmModal } from '../../components/ui/ConfirmModal';
-import {
-  centsToInput,
-  formatCurrency,
-  isUnreadableAmount,
-  parseCents,
-} from '../../utils/currency';
-import * as io from './api';
+import { formatCurrency } from '../../utils/currency';
+import { EventForm, LoanForm, OriginalOutflowForm, ProfileForm } from './FinancialProfileForms';
+import * as api from './api';
 import type {
-  DepositCandidate,
-  LoanInput,
-  LoanRepayment,
-  PersonalLoan,
-  RepaymentInput,
-  LoanMode,
-  LoanCadence,
+  BorrowerProfile, LoanAdvanceInput, LoanInput, LoanRepayment,
+  LoanAdvance, PersonalLoan, RepaymentInput,
 } from './api';
 
-const field =
-  'w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text focus:outline-none focus:ring-1 focus:ring-brand-600';
-const label = 'grid gap-1 text-sm font-medium text-text-secondary';
-const today = () => format(new Date(), 'yyyy-MM-dd');
+type EventEdit = { loan: PersonalLoan; kind: 'advance' | 'repayment' };
+type DeleteTarget =
+  | { kind: 'profile'; profile: BorrowerProfile }
+  | { kind: 'loan'; loan: PersonalLoan }
+  | { kind: 'advance'; loan: PersonalLoan; item: LoanAdvance }
+  | { kind: 'repayment'; loan: PersonalLoan; item: LoanRepayment };
 
-function LoanForm({
-  loan,
-  onCancel,
-  onSubmit,
-  saving,
-  error,
-}: {
-  loan?: PersonalLoan;
-  onCancel: () => void;
-  onSubmit: (body: LoanInput) => void;
-  saving: boolean;
-  error: string | null;
-}) {
-  const canSave = useCanSave();
-  const [borrower, setBorrower] = useState(loan?.borrower ?? '');
-  const [principal, setPrincipal] = useState(centsToInput(loan?.principal ?? 0));
-  const [lentOn, setLentOn] = useState(loan?.lentOn ?? today());
-  const [repaymentMode, setRepaymentMode] = useState<LoanMode>(
-    loan?.repaymentMode ?? 'open',
-  );
-  const [firstDueOn, setFirstDueOn] = useState(loan?.firstDueOn ?? today());
-  const [cadence, setCadence] = useState<LoanCadence>(loan?.cadence ?? 'monthly');
-  const [installment, setInstallment] = useState(
-    centsToInput(loan?.installmentAmount ?? 0),
-  );
-  const [remindersEnabled, setRemindersEnabled] = useState(
-    Boolean(loan?.remindersEnabled),
-  );
-  const [notes, setNotes] = useState(loan?.notes ?? '');
-  const [invalid, setInvalid] = useState('');
-
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    if (isUnreadableAmount(principal) ||
-      (repaymentMode === 'installments' && isUnreadableAmount(installment))) {
-      setInvalid('Enter a valid amount.');
-      return;
-    }
-    const principalAmount = parseCents(principal);
-    const installmentAmount = repaymentMode === 'installments' ? parseCents(installment) : null;
-    if (principalAmount <= 0 || !Number.isSafeInteger(principalAmount) ||
-      (repaymentMode === 'installments' && (!installmentAmount || installmentAmount <= 0))) {
-      setInvalid('Amounts must be greater than zero.');
-      return;
-    }
-    setInvalid('');
-    onSubmit({
-      borrower: borrower.trim(),
-      principal: principalAmount,
-      lentOn,
-      repaymentMode,
-      firstDueOn: repaymentMode === 'open' ? null : firstDueOn,
-      cadence: repaymentMode === 'installments' ? cadence : null,
-      installmentAmount,
-      remindersEnabled: repaymentMode === 'open' ? 0 : Number(remindersEnabled),
-      notes: notes.trim() || null,
-    });
-  }
-
-  return (
-    <form onSubmit={submit} className="space-y-4">
-      <label className={label}>
-        Borrower
-        <input
-          className={field}
-          value={borrower}
-          maxLength={200}
-          onChange={(event) => setBorrower(event.target.value)}
-          placeholder="Who borrowed the money?"
-          required
-        />
-      </label>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <label className={label}>
-          Amount originally lent
-          <input
-            className={field}
-            value={principal}
-            onChange={(event) => setPrincipal(event.target.value)}
-            inputMode="decimal"
-            aria-label="Loan amount"
-            required
-          />
-        </label>
-        <label className={label}>
-          Date lent
-          <input
-            type="date"
-            className={field}
-            value={lentOn}
-            onChange={(event) => setLentOn(event.target.value)}
-            required
-          />
-        </label>
-      </div>
-      <label className={label}>
-        Repayment arrangement
-        <select
-          className={field}
-          value={repaymentMode}
-          onChange={(event) => setRepaymentMode(event.target.value as LoanMode)}
-        >
-          <option value="open">Open-ended — no due date</option>
-          <option value="once">One payment — fixed due date</option>
-          <option value="installments">Installments — recurring payments</option>
-        </select>
-      </label>
-      {repaymentMode !== 'open' && (
-        <div className="space-y-3 rounded-lg bg-surface-alt p-3">
-          <label className={label}>
-            {repaymentMode === 'once' ? 'Due date' : 'First repayment due'}
-            <input
-              type="date"
-              className={field}
-              value={firstDueOn}
-              min={lentOn}
-              onChange={(event) => setFirstDueOn(event.target.value)}
-              required
-            />
-          </label>
-          {repaymentMode === 'installments' && (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <label className={label}>
-                Frequency
-                <select
-                  className={field}
-                  value={cadence}
-                  onChange={(event) => setCadence(event.target.value as LoanCadence)}
-                >
-                  <option value="weekly">Weekly</option>
-                  <option value="biweekly">Every 2 weeks</option>
-                  <option value="monthly">Monthly</option>
-                </select>
-              </label>
-              <label className={label}>
-                Payment per installment
-                <input
-                  className={field}
-                  inputMode="decimal"
-                  value={installment}
-                  onChange={(event) => setInstallment(event.target.value)}
-                  required
-                  aria-label="Installment amount"
-                />
-              </label>
-            </div>
-          )}
-          <label className="flex items-center gap-2 text-sm text-text">
-            <input
-              type="checkbox"
-              checked={remindersEnabled}
-              onChange={(event) => setRemindersEnabled(event.target.checked)}
-            />
-            Show due-soon and overdue reminders inside FlyBudget
-          </label>
-        </div>
-      )}
-      <label className={label}>
-        Notes or agreement details (optional)
-        <textarea
-          className={field}
-          value={notes}
-          maxLength={5000}
-          rows={3}
-          onChange={(event) => setNotes(event.target.value)}
-          placeholder="What was agreed? Reference numbers, payment expectations..."
-        />
-      </label>
-      <p className="text-xs text-text-tertiary">
-        This IOU record will not move money or alter your bank accounts. Add any real
-        transfer or payment through your normal bank transaction records.
-      </p>
-      {(invalid || error) && <p role="alert" className="text-sm text-negative">{invalid || error}</p>}
-      <div className="flex justify-end gap-2">
-        <Button variant="secondary" onClick={onCancel}>Cancel</Button>
-        <Button type="submit" disabled={!canSave || saving}>
-          {saving ? 'Saving…' : loan ? 'Save changes' : 'Create loan'}
-        </Button>
-      </div>
-    </form>
-  );
-}
-
-function PaymentForm({
-  loan,
-  close,
-  submitPayment,
-  saving,
-  error,
-}: {
-  loan: PersonalLoan;
-  close: () => void;
-  submitPayment: (body: RepaymentInput) => void;
-  saving: boolean;
-  error: string | null;
-}) {
-  const canSave = useCanSave();
-  const [source, setSource] = useState<'manual' | 'deposit'>('manual');
-  const [amount, setAmount] = useState(centsToInput(loan.outstanding));
-  const [paidOn, setPaidOn] = useState(today());
-  const [notes, setNotes] = useState('');
-  const [depositId, setDepositId] = useState('');
-  const [invalid, setInvalid] = useState('');
-  const { data: deposits = [], isLoading } = useQuery({
-    queryKey: ['personal-loan-deposits', loan.id],
-    queryFn: () => io.depositsForLoan(loan.id),
-    enabled: source === 'deposit',
-  });
-  const deposit = deposits.find((d) => d.id === depositId);
-
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    if (source === 'deposit') {
-      if (!deposit) return setInvalid('Select a posted deposit.');
-      submitPayment({
-        paidOn: deposit.date,
-        amount: deposit.amount,
-        transactionId: deposit.id,
-        notes: notes.trim() || null,
-      });
-      return;
-    }
-    if (isUnreadableAmount(amount)) return setInvalid('Enter a valid amount.');
-    const cents = parseCents(amount);
-    if (cents <= 0 || cents > loan.outstanding || !Number.isSafeInteger(cents)) {
-      return setInvalid('Enter a positive amount no greater than the outstanding balance.');
-    }
-    submitPayment({ amount: cents, paidOn, transactionId: null, notes: notes.trim() || null });
-  }
-
-  return (
-    <form onSubmit={submit} className="space-y-4">
-      <p className="text-sm text-text-secondary">
-        Outstanding: <strong className="text-text">{formatCurrency(loan.outstanding)}</strong>
-      </p>
-      <label className={label}>
-        Payment source
-        <select
-          value={source}
-          className={field}
-          onChange={(event) => {
-            setSource(event.target.value as 'manual' | 'deposit');
-            setDepositId('');
-            setInvalid('');
-          }}
-        >
-          <option value="manual">Manual / cash repayment</option>
-          <option value="deposit">Link existing posted bank deposit</option>
-        </select>
-      </label>
-      {source === 'manual' ? (
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className={label}>
-            Amount received
-            <input
-              className={field}
-              inputMode="decimal"
-              value={amount}
-              onChange={(event) => setAmount(event.target.value)}
-              required
-            />
-          </label>
-          <label className={label}>
-            Date received
-            <input
-              className={field}
-              type="date"
-              min={loan.lentOn}
-              value={paidOn}
-              onChange={(event) => setPaidOn(event.target.value)}
-              required
-            />
-          </label>
-        </div>
-      ) : (
-        <label className={label}>
-          Choose the matching posted deposit
-          <select
-            className={field}
-            value={depositId}
-            onChange={(event) => setDepositId(event.target.value)}
-            required
-          >
-            <option value="">Select a deposit…</option>
-            {deposits.map((d: DepositCandidate) => (
-              <option key={d.id} value={d.id}>
-                {d.date} · {d.payeeName || 'Deposit'} · {formatCurrency(d.amount)}
-              </option>
-            ))}
-          </select>
-          <span className="text-xs font-normal text-text-tertiary">
-            {isLoading
-              ? 'Loading recent posted deposits…'
-              : 'Only unlinked posted inflows from the last 180 days are shown. Linking is a reference, not a new bank transaction.'}
-          </span>
-        </label>
-      )}
-      <label className={label}>
-        Notes (optional)
-        <textarea
-          className={field}
-          rows={2}
-          value={notes}
-          maxLength={5000}
-          onChange={(event) => setNotes(event.target.value)}
-        />
-      </label>
-      {(invalid || error) && <p role="alert" className="text-sm text-negative">{invalid || error}</p>}
-      <div className="flex justify-end gap-2">
-        <Button variant="secondary" onClick={close}>Cancel</Button>
-        <Button disabled={!canSave || saving} type="submit">
-          {saving ? 'Saving…' : 'Record repayment'}
-        </Button>
-      </div>
-    </form>
-  );
-}
-
-function LoanItem({
-  loan,
-  onEdit,
-  onRepay,
-  onDelete,
-  onDeletePayment,
+function LoanCard({
+  loan, onEdit, onCredit, onPayment, onOriginal, onDelete, onDeleteAdvance, onDeleteRepayment,
 }: {
   loan: PersonalLoan;
   onEdit: () => void;
-  onRepay: () => void;
+  onCredit: () => void;
+  onPayment: () => void;
+  onOriginal: () => void;
   onDelete: () => void;
-  onDeletePayment: (payment: LoanRepayment) => void;
+  onDeleteAdvance: (item: LoanAdvance) => void;
+  onDeleteRepayment: (item: LoanRepayment) => void;
 }) {
-  const [showHistory, setShowHistory] = useState(false);
-  const state =
-    loan.status === 'repaid'
-      ? 'text-positive'
-      : loan.status === 'overdue'
-        ? 'text-negative'
-        : 'text-text-secondary';
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const progress = loan.totalPrincipal > 0
+    ? Math.min(100, (loan.repaid / loan.totalPrincipal) * 100) : 0;
   return (
-    <section className="rounded-lg border border-border bg-surface shadow-card">
-      <div className="flex flex-wrap items-start gap-3 p-4">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-alt">
-          <HandCoins size={20} className="text-text-secondary" />
-        </div>
+    <article className="rounded-lg border border-border bg-surface shadow-card">
+      <div className="flex flex-wrap items-start justify-between gap-3 p-4">
         <div className="min-w-0 flex-1">
-          <h2 className="font-semibold text-text">{loan.borrower}</h2>
-          <div className={`mt-1 flex items-center gap-2 text-xs ${state}`}>
-            {loan.status === 'repaid'
-              ? <CheckCircle2 size={14} />
-              : loan.status === 'overdue'
-                ? <AlertCircle size={14} />
-                : <CalendarClock size={14} />}
-            <span>
-              {loan.status === 'repaid'
-                ? 'Fully repaid'
-                : loan.status === 'overdue'
-                  ? `${formatCurrency(loan.overdueAmount)} overdue`
-                  : loan.repaymentMode === 'open'
-                    ? 'Open-ended — no deadline'
-                    : loan.nextDueOn
-                      ? `Next unpaid due: ${loan.nextDueOn}`
-                      : 'Scheduled'}
-            </span>
+          <h3 className="font-semibold text-text">{loan.title}</h3>
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-text-secondary">
+            <span>Issued {loan.lentOn}</span>
+            <span>·</span>
+            {loan.status === 'repaid' ? (
+              <span className="inline-flex items-center gap-1 text-positive">
+                <CheckCircle2 size={13} /> Fully repaid
+              </span>
+            ) : loan.status === 'overdue' ? (
+              <span className="inline-flex items-center gap-1 text-negative">
+                <AlertCircle size={13} /> {formatCurrency(loan.overdueAmount)} overdue
+              </span>
+            ) : loan.repaymentMode === 'open' ? (
+              <span>Open-ended</span>
+            ) : (
+              <span className="inline-flex items-center gap-1">
+                <CalendarClock size={13} /> Due {loan.nextDueOn || loan.firstDueOn || '—'}
+              </span>
+            )}
           </div>
+          {loan.reminder && loan.status !== 'repaid' && (
+            <p className="mt-1 text-xs text-negative">Repayment due soon or overdue</p>
+          )}
         </div>
         <div className="text-right">
           <div className="text-lg font-semibold tabular-nums text-text">
@@ -401,247 +70,390 @@ function LoanItem({
         </div>
       </div>
       <div className="border-t border-border-light px-4 py-3">
-        <div className="flex justify-between text-xs text-text-tertiary">
-          <span>Originally {formatCurrency(loan.principal)} · {loan.lentOn}</span>
-          <span>{formatCurrency(loan.repaid)} received</span>
+        <div className="flex justify-between gap-3 text-xs text-text-secondary">
+          <span>
+            Original {formatCurrency(loan.principal)}
+            {loan.advanced > 0 ? ` · Extra credit ${formatCurrency(loan.advanced)}` : ''}
+          </span>
+          <span>Received {formatCurrency(loan.repaid)}</span>
         </div>
         <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface-alt">
-          <div
-            className="h-full rounded-full bg-brand-500"
-            style={{ width: `${Math.min(100, (loan.repaid / loan.principal) * 100)}%` }}
-          />
+          <div className="h-full rounded-full bg-brand-500" style={{ width: `${progress}%` }} />
         </div>
         {loan.notes && (
           <p className="mt-3 whitespace-pre-wrap text-xs text-text-secondary">{loan.notes}</p>
         )}
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button size="sm" onClick={onCredit}>
+            <Plus size={14} /> Add credit
+          </Button>
           {loan.outstanding > 0 && (
-            <Button size="sm" onClick={onRepay}>Record repayment</Button>
+            <Button size="sm" variant="secondary" onClick={onPayment}>Record repayment</Button>
           )}
-          <Button size="sm" variant="secondary" onClick={onEdit}>
+          <Button size="sm" variant="secondary" onClick={onOriginal}>
+            {loan.disbursementTransactionId ? 'Original transaction linked' : 'Link original transaction'}
+          </Button>
+          <Button size="sm" variant="ghost" onClick={onEdit}>
             <Pencil size={13} /> Edit
           </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => setShowHistory(!showHistory)}
-          >
-            {showHistory ? 'Hide' : 'View'} payments ({loan.repayments.length})
+          <Button size="sm" variant="ghost" onClick={() => setHistoryOpen(!historyOpen)}>
+            {historyOpen ? 'Hide' : 'Show'} history
           </Button>
           <Button size="sm" variant="ghost" onClick={onDelete}>
             <Trash2 size={13} /> Delete
           </Button>
         </div>
-        {showHistory && (
-          <div className="mt-3 divide-y divide-border-light border-t border-border-light">
-            {loan.repayments.length === 0 ? (
-              <p className="py-3 text-sm text-text-tertiary">No repayments recorded yet.</p>
-            ) : (
-              loan.repayments.map((payment) => (
-                <div key={payment.id} className="flex items-center gap-2 py-2 text-sm">
-                  <span className="text-text-secondary">{payment.paidOn}</span>
-                  <span className="min-w-0 flex-1 truncate text-xs text-text-tertiary">
-                    {payment.transactionId ? 'Linked bank deposit' : 'Manual'}
-                    {payment.notes ? ` · ${payment.notes}` : ''}
-                  </span>
-                  <span className="font-medium tabular-nums text-text">
-                    {formatCurrency(payment.amount)}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => onDeletePayment(payment)}
-                    aria-label={`Remove repayment from ${payment.paidOn}`}
-                    className="rounded p-2 text-text-tertiary hover:text-negative"
-                  >
-                    <Trash2 size={15} />
-                  </button>
+        {historyOpen && (
+          <div className="mt-4 space-y-3 border-t border-border-light pt-3">
+            <h4 className="text-sm font-semibold text-text">Loan activity</h4>
+            <div className="flex flex-wrap justify-between gap-2 text-xs text-text-secondary">
+              <span>{loan.lentOn} · Original amount lent</span>
+              <span className="font-medium text-text">{formatCurrency(loan.principal)}</span>
+            </div>
+            {loan.advances.map((advance) => (
+              <div className="flex items-center gap-2 text-sm" key={advance.id}>
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs text-text">{advance.advancedOn} · Additional credit</div>
+                  <div className="text-xs text-text-tertiary">
+                    {advance.transactionId ? 'Linked posted bank outflow' : 'Manual record'}
+                    {advance.notes ? ` · ${advance.notes}` : ''}
+                  </div>
                 </div>
-              ))
+                <strong className="tabular-nums text-text">{formatCurrency(advance.amount)}</strong>
+                <button type="button" onClick={() => onDeleteAdvance(advance)}
+                  aria-label="Remove additional credit"
+                  className="rounded p-2 text-text-tertiary hover:text-negative">
+                  <Trash2 size={15} />
+                </button>
+              </div>
+            ))}
+            {loan.repayments.map((repayment) => (
+              <div className="flex items-center gap-2 text-sm" key={repayment.id}>
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs text-text">{repayment.paidOn} · Repayment</div>
+                  <div className="text-xs text-text-tertiary">
+                    {repayment.transactionId ? 'Linked posted bank deposit' : 'Manual record'}
+                    {repayment.notes ? ` · ${repayment.notes}` : ''}
+                  </div>
+                </div>
+                <strong className="tabular-nums text-text">−{formatCurrency(repayment.amount)}</strong>
+                <button type="button" onClick={() => onDeleteRepayment(repayment)}
+                  aria-label="Remove repayment"
+                  className="rounded p-2 text-text-tertiary hover:text-negative">
+                  <Trash2 size={15} />
+                </button>
+              </div>
+            ))}
+            {loan.advances.length === 0 && loan.repayments.length === 0 && (
+              <p className="text-xs text-text-tertiary">No additional activity yet.</p>
             )}
           </div>
         )}
       </div>
-    </section>
+    </article>
   );
 }
 
 export default function PersonalLoansPage() {
   const qc = useQueryClient();
-  const { data: loans = [], isLoading, error: loadError } = useQuery({
+  const { data: profiles = [], isLoading, error: profilesError } = useQuery({
+    queryKey: ['borrower-profiles'],
+    queryFn: api.listProfiles,
+  });
+  const { data: loans = [], error: loansError } = useQuery({
     queryKey: ['personal-loans'],
-    queryFn: io.listLoans,
+    queryFn: api.listLoans,
   });
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ['personal-loans'] });
-    qc.invalidateQueries({ queryKey: ['personal-loan-deposits'] });
+    qc.invalidateQueries({ queryKey: ['borrower-profiles'] });
+    qc.invalidateQueries({ queryKey: ['loan-bank-candidates'] });
+    qc.invalidateQueries({ queryKey: ['loan-original-outflows'] });
   };
-  const [creating, setCreating] = useState(false);
-  const [editing, setEditing] = useState<PersonalLoan | null>(null);
-  const [repaying, setRepaying] = useState<PersonalLoan | null>(null);
-  const [deleting, setDeleting] = useState<PersonalLoan | null>(null);
-  const [deletingPayment, setDeletingPayment] = useState<{
-    loan: PersonalLoan;
-    payment: LoanRepayment;
-  } | null>(null);
-  const create = useMutation({
-    mutationFn: io.createLoan,
-    onSuccess: () => { invalidate(); setCreating(false); },
+  const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
+  const current = profiles.find((p) => p.id === activeProfileId) ?? profiles[0] ?? null;
+  const shown = current ? loans.filter((loan) => loan.profileId === current.id) : [];
+  const [profileEditor, setProfileEditor] = useState<'new' | 'edit' | null>(null);
+  const [loanEditor, setLoanEditor] = useState<PersonalLoan | 'new' | null>(null);
+  const [eventEditor, setEventEditor] = useState<EventEdit | null>(null);
+  const [originalEditor, setOriginalEditor] = useState<PersonalLoan | null>(null);
+  const [deleting, setDeleting] = useState<DeleteTarget | null>(null);
+  const [actionError, setActionError] = useState('');
+
+  const createProfile = useMutation({
+    mutationFn: api.createProfile,
+    onSuccess: (p) => { invalidate(); setActiveProfileId(p.id); setProfileEditor(null); },
   });
-  const edit = useMutation({
-    mutationFn: ({ id, body }: { id: string; body: LoanInput }) => io.editLoan(id, body),
-    onSuccess: () => { invalidate(); setEditing(null); },
+  const editProfile = useMutation({
+    mutationFn: ({ id, body }: { id: string; body: { name: string; notes: string | null } }) =>
+      api.editProfile(id, body),
+    onSuccess: () => { invalidate(); setProfileEditor(null); },
   });
-  const repay = useMutation({
-    mutationFn: ({ id, body }: { id: string; body: RepaymentInput }) => io.repayLoan(id, body),
-    onSuccess: () => { invalidate(); setRepaying(null); },
+  const createLoan = useMutation({
+    mutationFn: api.createLoan,
+    onSuccess: (loan) => {
+      invalidate();
+      setActiveProfileId(loan.profileId);
+      setLoanEditor(null);
+    },
+  });
+  const editLoan = useMutation({
+    mutationFn: ({ id, body }: { id: string; body: LoanInput }) => api.editLoan(id, body),
+    onSuccess: (loan) => { invalidate(); setActiveProfileId(loan.profileId); setLoanEditor(null); },
+  });
+  const advance = useMutation({
+    mutationFn: ({ id, body }: { id: string; body: LoanAdvanceInput }) => api.addAdvance(id, body),
+    onSuccess: () => { invalidate(); setEventEditor(null); },
+  });
+  const repayment = useMutation({
+    mutationFn: ({ id, body }: { id: string; body: RepaymentInput }) => api.repayLoan(id, body),
+    onSuccess: () => { invalidate(); setEventEditor(null); },
+  });
+  const original = useMutation({
+    mutationFn: ({ id, transactionId }: { id: string; transactionId: string | null }) =>
+      api.linkDisbursement(id, transactionId),
+    onSuccess: () => { invalidate(); setOriginalEditor(null); },
   });
   const remove = useMutation({
-    mutationFn: io.deleteLoan,
-    onSuccess: () => { invalidate(); setDeleting(null); },
+    mutationFn: async (target: DeleteTarget) => {
+      if (target.kind === 'profile') return api.deleteProfile(target.profile.id);
+      if (target.kind === 'loan') return api.deleteLoan(target.loan.id);
+      if (target.kind === 'advance') return api.deleteAdvance(target.loan.id, target.item.id);
+      return api.deleteRepayment(target.loan.id, target.item.id);
+    },
+    onSuccess: (_result, target) => {
+      invalidate();
+      setDeleting(null);
+      setActionError('');
+      if (target.kind === 'profile') setActiveProfileId(null);
+    },
+    onError: (error) => setActionError(error.message),
   });
-  const removePayment = useMutation({
-    mutationFn: ({ id, paymentId }: { id: string; paymentId: string }) =>
-      io.deleteRepayment(id, paymentId),
-    onSuccess: () => { invalidate(); setDeletingPayment(null); },
-  });
-
-  const outstanding = loans.reduce((sum, x) => sum + x.outstanding, 0);
-  const repaid = loans.reduce((sum, x) => sum + x.repaid, 0);
-  const due = loans.filter((x) => x.reminder && x.status !== 'repaid');
+  const totalOwed = profiles.reduce((sum, p) => sum + p.outstanding, 0);
+  const totalRepaid = profiles.reduce((sum, p) => sum + p.repaid, 0);
 
   return (
     <div className="flex h-full flex-col bg-surface">
-      <header className="flex items-center justify-between gap-3 border-b border-border px-6 py-4">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
         <div>
           <h1 className="text-lg font-semibold text-text">Money Lent</h1>
-          <p className="text-xs text-text-secondary">Personal loans and IOUs</p>
+          <p className="text-xs text-text-secondary">People, separate loans and repayment history</p>
         </div>
-        <Button size="sm" onClick={() => { create.reset(); setCreating(true); }}>
-          <Plus size={15} /> Add loan
+        <Button size="sm" onClick={() => { createProfile.reset(); setProfileEditor('new'); }}>
+          <Plus size={15} /> Add person
         </Button>
       </header>
-      <main className="flex-1 space-y-4 overflow-y-auto px-4 py-5 sm:px-6">
+      <main className="flex-1 space-y-5 overflow-y-auto p-4 sm:p-6">
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-lg border border-border bg-surface-alt p-4">
             <div className="text-xs text-text-secondary">Total still owed</div>
             <div className="mt-1 text-xl font-semibold tabular-nums text-text">
-              {formatCurrency(outstanding)}
+              {formatCurrency(totalOwed)}
             </div>
           </div>
           <div className="rounded-lg border border-border bg-surface-alt p-4">
-            <div className="text-xs text-text-secondary">Repayments recorded</div>
+            <div className="text-xs text-text-secondary">Total repaid</div>
             <div className="mt-1 text-xl font-semibold tabular-nums text-text">
-              {formatCurrency(repaid)}
+              {formatCurrency(totalRepaid)}
             </div>
           </div>
         </div>
-        {due.length > 0 && (
-          <div role="status" className="flex items-start gap-2 rounded-lg border border-border bg-surface-alt p-3 text-sm text-text">
-            <CalendarClock size={18} className="shrink-0 text-negative" />
-            <div>
-              <strong>{due.length} repayment reminder{due.length !== 1 ? 's' : ''}</strong>
-              <p className="text-text-secondary">One or more scheduled repayments are due within seven days or overdue.</p>
-            </div>
-          </div>
-        )}
         <p className="text-xs text-text-tertiary">
-          IOU balances are tracked separately and are not automatically added to net worth or
-          cash available to budget. Bank deposits are linked only when you explicitly select one.
+          These are tracking-only IOUs, not additional cash or net-worth accounts.
+          Linking a bank transaction never creates or modifies a bank entry.
         </p>
-        {loadError && <p role="alert" className="text-sm text-negative">{loadError.message}</p>}
+        {(profilesError || loansError) && (
+          <p role="alert" className="text-sm text-negative">
+            {(profilesError || loansError)?.message}
+          </p>
+        )}
         {isLoading ? (
-          <p className="text-sm text-text-secondary">Loading loans…</p>
-        ) : loans.length === 0 ? (
+          <p className="text-sm text-text-secondary">Loading borrower profiles…</p>
+        ) : profiles.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border p-10 text-center">
-            <HandCoins size={30} className="mx-auto text-text-tertiary" />
-            <h2 className="mt-3 font-medium text-text">No money lent recorded yet</h2>
-            <p className="mt-1 text-sm text-text-secondary">
-              Track open-ended IOUs, payment plans, and partial repayments in one place.
+            <UserRound size={32} className="mx-auto text-text-tertiary" />
+            <h2 className="mt-2 font-semibold text-text">Create a financial profile</h2>
+            <p className="mt-2 text-sm text-text-secondary">
+              Each person can have multiple separate loans with their own payment schedules.
             </p>
             <div className="mt-4">
-              <Button onClick={() => { create.reset(); setCreating(true); }}>
-                <Plus size={15} /> Add your first loan
+              <Button onClick={() => setProfileEditor('new')}>
+                <Plus size={15} /> Add person
               </Button>
             </div>
           </div>
         ) : (
-          <div className="grid gap-3 xl:grid-cols-2">
-            {loans.map((loan) => (
-              <LoanItem
-                key={loan.id}
-                loan={loan}
-                onEdit={() => { edit.reset(); setEditing(loan); }}
-                onRepay={() => { repay.reset(); setRepaying(loan); }}
-                onDelete={() => setDeleting(loan)}
-                onDeletePayment={(payment) => setDeletingPayment({ loan, payment })}
-              />
-            ))}
+          <div className="grid items-start gap-5 lg:grid-cols-[minmax(220px,0.36fr)_minmax(0,1fr)]">
+            <section className="space-y-2" aria-label="Borrower profiles">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-text">People ({profiles.length})</h2>
+              </div>
+              {profiles.map((profile) => (
+                <button
+                  key={profile.id}
+                  type="button"
+                  onClick={() => setActiveProfileId(profile.id)}
+                  aria-pressed={current?.id === profile.id}
+                  className={`w-full rounded-lg border p-3 text-left transition-colors ${
+                    current?.id === profile.id
+                      ? 'border-brand-500 bg-surface-alt'
+                      : 'border-border bg-surface hover:bg-hover'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="min-w-0 truncate font-medium text-text">{profile.name}</span>
+                    <span className="shrink-0 text-sm font-semibold tabular-nums text-text">
+                      {formatCurrency(profile.outstanding)}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-text-tertiary">
+                    {profile.loanCount} loan{profile.loanCount === 1 ? '' : 's'} ·
+                    {formatCurrency(profile.repaid)} repaid
+                  </p>
+                </button>
+              ))}
+            </section>
+            {current && (
+              <section className="min-w-0 space-y-4" aria-label={`Loans for ${current.name}`}>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <HandCoins size={20} className="text-text-secondary" />
+                      <h2 className="text-lg font-semibold text-text">{current.name}</h2>
+                    </div>
+                    <p className="mt-1 text-xs text-text-secondary">
+                      {current.loanCount} loan{current.loanCount === 1 ? '' : 's'} ·
+                      {formatCurrency(current.outstanding)} owed
+                    </p>
+                    {current.notes && (
+                      <p className="mt-2 whitespace-pre-wrap text-sm text-text-secondary">
+                        {current.notes}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" onClick={() => { createLoan.reset(); setLoanEditor('new'); }}>
+                      <Plus size={15} /> New loan
+                    </Button>
+                    <Button size="sm" variant="secondary"
+                      onClick={() => { editProfile.reset(); setProfileEditor('edit'); }}>
+                      <Pencil size={14} /> Profile
+                    </Button>
+                    {current.loanCount === 0 && (
+                      <Button size="sm" variant="ghost"
+                        onClick={() => { setActionError(''); setDeleting({ kind: 'profile', profile: current }); }}>
+                        <Trash2 size={14} /> Delete
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                {shown.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-border p-7 text-center">
+                    <p className="text-sm text-text-secondary">No loans for this person yet.</p>
+                    <div className="mt-3">
+                      <Button onClick={() => setLoanEditor('new')}>
+                        <Plus size={14} /> Add their first loan
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid gap-3">
+                    {shown.map((loan) => (
+                      <LoanCard
+                        key={loan.id}
+                        loan={loan}
+                        onEdit={() => { editLoan.reset(); setLoanEditor(loan); }}
+                        onCredit={() => { advance.reset(); setEventEditor({ loan, kind: 'advance' }); }}
+                        onPayment={() => { repayment.reset(); setEventEditor({ loan, kind: 'repayment' }); }}
+                        onOriginal={() => { original.reset(); setOriginalEditor(loan); }}
+                        onDelete={() => { setActionError(''); setDeleting({ kind: 'loan', loan }); }}
+                        onDeleteAdvance={(item) => { setActionError(''); setDeleting({ kind: 'advance', loan, item }); }}
+                        onDeleteRepayment={(item) => { setActionError(''); setDeleting({ kind: 'repayment', loan, item }); }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
           </div>
         )}
       </main>
-      {creating && (
-        <Modal isOpen onClose={() => setCreating(false)} title="Add money lent" size="lg">
-          <LoanForm
-            onCancel={() => setCreating(false)}
-            onSubmit={(body) => create.mutate(body)}
-            saving={create.isPending}
-            error={create.error?.message ?? null}
+      {profileEditor && (
+        <Modal isOpen title={profileEditor === 'new' ? 'Add person' : 'Edit financial profile'}
+          onClose={() => setProfileEditor(null)} size="lg">
+          <ProfileForm
+            key={profileEditor === 'new' ? 'new' : current?.id}
+            profile={profileEditor === 'edit' ? current ?? undefined : undefined}
+            busy={createProfile.isPending || editProfile.isPending}
+            error={(profileEditor === 'new' ? createProfile.error : editProfile.error)?.message}
+            onCancel={() => setProfileEditor(null)}
+            onSubmit={(body) => {
+              if (profileEditor === 'new') createProfile.mutate(body);
+              else if (current) editProfile.mutate({ id: current.id, body });
+            }}
           />
         </Modal>
       )}
-      {editing && (
-        <Modal isOpen onClose={() => setEditing(null)} title="Edit loan" size="lg">
+      {loanEditor && current && (
+        <Modal isOpen title={loanEditor === 'new' ? 'Add loan' : 'Edit loan'}
+          onClose={() => setLoanEditor(null)} size="lg">
           <LoanForm
-            key={editing.id}
-            loan={editing}
-            onCancel={() => setEditing(null)}
-            onSubmit={(body) => edit.mutate({ id: editing.id, body })}
-            saving={edit.isPending}
-            error={edit.error?.message ?? null}
+            key={loanEditor === 'new' ? 'new' : loanEditor.id}
+            profile={current} profiles={profiles}
+            loan={loanEditor === 'new' ? undefined : loanEditor}
+            busy={createLoan.isPending || editLoan.isPending}
+            error={(loanEditor === 'new' ? createLoan.error : editLoan.error)?.message}
+            onCancel={() => setLoanEditor(null)}
+            onSubmit={(body) => {
+              if (loanEditor === 'new') createLoan.mutate(body);
+              else editLoan.mutate({ id: loanEditor.id, body });
+            }}
           />
         </Modal>
       )}
-      {repaying && (
-        <Modal isOpen onClose={() => setRepaying(null)} title={`Repayment from ${repaying.borrower}`} size="lg">
-          <PaymentForm
-            key={repaying.id}
-            loan={repaying}
-            close={() => setRepaying(null)}
-            submitPayment={(body) => repay.mutate({ id: repaying.id, body })}
-            saving={repay.isPending}
-            error={repay.error?.message ?? null}
+      {eventEditor && (
+        <Modal isOpen
+          title={eventEditor.kind === 'advance' ? 'Add credit to loan' : 'Record repayment'}
+          onClose={() => setEventEditor(null)} size="lg">
+          <EventForm
+            key={`${eventEditor.loan.id}-${eventEditor.kind}`}
+            loan={eventEditor.loan} kind={eventEditor.kind}
+            busy={advance.isPending || repayment.isPending}
+            error={(eventEditor.kind === 'advance' ? advance.error : repayment.error)?.message}
+            onCancel={() => setEventEditor(null)}
+            onSubmit={(body) => {
+              if (eventEditor.kind === 'advance') {
+                advance.mutate({ id: eventEditor.loan.id, body: body as LoanAdvanceInput });
+              } else {
+                repayment.mutate({ id: eventEditor.loan.id, body: body as RepaymentInput });
+              }
+            }}
           />
+        </Modal>
+      )}
+      {originalEditor && (
+        <Modal isOpen title="Link original money lent" size="lg"
+          onClose={() => setOriginalEditor(null)}>
+          <OriginalOutflowForm loan={originalEditor} close={() => setOriginalEditor(null)}
+            busy={original.isPending} error={original.error?.message}
+            onLink={(transactionId) => original.mutate({ id: originalEditor.id, transactionId })} />
         </Modal>
       )}
       <ConfirmModal
-        isOpen={deleting !== null}
-        onClose={() => setDeleting(null)}
-        title="Delete loan?"
-        message="This permanently deletes the IOU and its repayment history. Bank transactions will remain unchanged."
-        danger
-        confirmLabel="Delete loan"
-        onConfirm={() => { if (deleting) remove.mutate(deleting.id); }}
+        isOpen={deleting !== null} onClose={() => { setDeleting(null); setActionError(''); }}
+        title="Remove recorded data?"
+        message={
+          deleting?.kind === 'profile'
+            ? 'This removes an empty financial profile.'
+            : deleting?.kind === 'loan'
+              ? 'This deletes this loan and its credit/repayment history. Bank transactions remain.'
+              : 'This removes the selected IOU activity. Bank transactions remain unchanged.'
+        }
+        confirmLabel="Remove" danger
+        onConfirm={() => { if (deleting) remove.mutate(deleting); }}
       />
-      <ConfirmModal
-        isOpen={deletingPayment !== null}
-        onClose={() => setDeletingPayment(null)}
-        title="Remove repayment?"
-        message="The remaining IOU balance will increase. An already linked bank transaction will not be deleted."
-        danger
-        confirmLabel="Remove repayment"
-        onConfirm={() => {
-          if (deletingPayment) {
-            removePayment.mutate({
-              id: deletingPayment.loan.id,
-              paymentId: deletingPayment.payment.id,
-            });
-          }
-        }}
-      />
-      {(remove.error || removePayment.error) && (
-        <p role="alert" className="px-6 py-2 text-sm text-negative">
-          {(remove.error || removePayment.error)?.message}
-        </p>
+      {actionError && (
+        <div role="alert" className="px-5 pb-3 text-sm text-negative">{actionError}</div>
       )}
     </div>
   );
