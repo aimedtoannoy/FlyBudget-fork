@@ -103,7 +103,9 @@ jobs:
   # End-to-end: the real app in a real browser (Playwright), against throwaway databases.
   # Covers the desktop-app setup and self-hosted server mode; see e2e/global-setup.ts.
   e2e:
-    needs: [electron]
+    # Browser installation and full Playwright coverage are expensive.
+    # Skip this job when a faster build/typecheck/test job has already failed.
+    needs: [electron, server, client, website]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
