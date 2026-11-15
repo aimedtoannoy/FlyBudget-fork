@@ -51,12 +51,33 @@ export function bankCandidates(opts: {
     ...(opts.onBudgetOnly ? [eq(accounts.isOffBudget, 0)] : []),
     ...(opts.includeTransfers ? [] : [isNull(transactions.transferTransactionId)]),
   ];
-  const recent = db.select({ id: transactions.id })
-    .from(transactions).innerJoin(accounts, eq(transactions.accountId, accounts.id))
+  // Fetch in one joined query, rather than 1,500 individual bank and settings reads.
+  const posted = db.select({
+    id: transactions.id,
+    accountId: transactions.accountId,
+    accountName: accounts.name,
+    currency: accounts.currency,
+    isOffBudget: accounts.isOffBudget,
+    date: transactions.date,
+    amount: transactions.amount,
+    mainAmount: transactions.mainAmount,
+    payeeName: transactions.payeeName,
+    pending: transactions.pending,
+    isAdjustment: transactions.isAdjustment,
+    isParent: transactions.isParent,
+    parentTransactionId: transactions.parentTransactionId,
+    transferTransactionId: transactions.transferTransactionId,
+  }).from(transactions).innerJoin(accounts, eq(transactions.accountId, accounts.id))
     .where(and(...conditions)).orderBy(desc(transactions.date)).limit(1500).all();
+  const budgetCurrency = getBudgetSettings().currency;
   const q = (opts.search ?? '').trim().toLowerCase().slice(0, 120);
-  return recent.map((t) => bankTransaction(t.id)).filter((t): t is BankCandidate => {
-    if (!t || !t.value) return false;
+  return posted.map((t) => ({
+    ...t,
+    value: t.currency && t.currency !== budgetCurrency && t.mainAmount === null
+      ? null : (t.mainAmount ?? t.amount),
+    isTransfer: Boolean(t.transferTransactionId),
+  })).filter((t): t is typeof t & { value: number } => {
+    if (t.value === null || t.value === 0) return false;
     if (opts.direction === 'in' && t.value <= 0) return false;
     if (opts.direction === 'out' && t.value >= 0) return false;
     if (!opts.includeTransfers && t.isTransfer) return false;
