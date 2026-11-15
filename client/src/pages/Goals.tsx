@@ -281,7 +281,6 @@ export default function GoalsPage() {
                 onEdit={setEditGoal}
                 onDelete={setDeleting}
                 onLink={setLinkingGoal}
-                onLink={setLinkingGoal}
               />
             )}
             {completed.length > 0 && (
@@ -291,6 +290,7 @@ export default function GoalsPage() {
                 accountNames={accountNames}
                 onEdit={setEditGoal}
                 onDelete={setDeleting}
+                onLink={setLinkingGoal}
               />
             )}
           </div>

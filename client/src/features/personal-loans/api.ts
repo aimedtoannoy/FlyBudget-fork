@@ -83,6 +83,7 @@ export type DepositCandidate = {
   date: string;
   amount: number;
   payeeName: string | null;
+  accountName?: string;
 };
 
 export const listLoans = () => apiFetch<PersonalLoan[]>('/personal-loans');
