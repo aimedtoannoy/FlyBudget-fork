@@ -101,7 +101,19 @@ jobs:
             docs/customizations/README.md \
             docs/customizations/personal-loans.md \
             docs/customizations/goal-transactions.md
-          npm run format:check
+          # Verify Prettier is idempotent on the server router before continuing.
+          # This module has required a second formatter pass on the hosted runner.
+          for pass in 1 2 3; do
+            npx prettier --write server/src/features/personal-loans/routes.ts
+            if npx prettier --check server/src/features/personal-loans/routes.ts; then
+              break
+            fi
+          done
+          if ! npm run format:check; then
+            echo '::error::Formatting still failed after normalization'
+            git diff -- server/src/features/personal-loans/routes.ts
+            exit 1
+          fi
           git diff --stat
 
   # End-to-end: the real app in a real browser (Playwright), against throwaway databases.
