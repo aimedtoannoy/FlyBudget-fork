@@ -1,50 +1,72 @@
-# Money Lent / IOUs (FlyBudget fork)
+# Money Lent and borrower financial profiles (FlyBudget fork)
 
-Money Lent is a standalone record of personal loans **you make to someone else**.
-It does not move money, adjust balances or create new bank transactions.
+Money Lent now groups multiple **separate named loans** under one person’s financial
+profile. Each loan retains its own amount, lending date, repayment arrangement,
+transaction references and repayment history. Creating this module does not alter
+the original bank or budget records.
 
-## Create and manage
+## Profiles
 
-Open **Money Lent** in the sidebar and choose **Add loan**. Enter:
+Open **Money Lent** → **Add person**. A profile has a name and private notes.
+Select the profile to see its own loan list and total still owed. You can rename
+the profile or move an existing loan between profiles via **Edit loan**.
 
-- Borrower, principal amount and date you lent the money.
-- **Open-ended:** no deadline.
-- **One payment:** a single due date.
-- **Installments:** first due date, amount per installment, weekly / every two weeks / monthly.
-- Optional notes containing terms, agreement reference, or relevant context.
-- Optional **in-app reminders** for scheduled payments within seven days or overdue.
+**Existing installation migration:** Previously created IOUs are preserved
+and automatically associated with a profile based on their existing borrower
+name when Money Lent first loads after migration. Repayment records, IDs,
+balances and original loan dates remain unchanged. Names that match after
+trimming whitespace and ignoring capitalization are initially grouped.
+If two distinct people share a name, create a second profile and move the
+appropriate loans; profiles are identified by IDs, not names.
 
-You can edit a loan to change its repayment arrangement without losing the payment
-history. You can record partial cash payments, or select a **posted bank deposit**
-from the last 180 days. The latter is a *link* to an existing transaction, not a
-second deposit, and always needs explicit review. Pending transactions, transfers,
-off-budget accounts, adjustments, and deposits already linked to another payment
-are not eligible. Amount/date must match the posted deposit.
+## Separate loans, credits and repayments
 
-The app shows outstanding, received, next unpaid date, overdue amount, and payment
-history. You can remove an incorrect payment or delete the loan after confirmation.
+Inside a profile choose **New loan**. Enter a loan title or purpose, original
+principal, lending date, and an optional one-time or installment schedule.
+Loans are not combined: two loans for the same person have different histories.
 
-## Important accounting limits
+Choose **Add credit** on a loan to record **additional money you lend**. This
+increases the total principal and outstanding balance without modifying the
+original lending amount. Choose **Record repayment** for payments received;
+repayments reduce the outstanding balance. Both actions support manual entry
+or an optional link to an existing posted bank transaction.
 
-Money Lent is an **informational IOU subledger**. Unlike FlyBudget's actual
-Accounts, IOUs do not appear in net worth, or automatically change "To Budget".
-Original lending and repayment transactions should continue to be recorded in the
-normal account registers. This feature does not rewrite their categories or
-accounting treatment. If you already track a receivable in an Other Asset account,
-do **not** add this IOU balance to your net worth a second time.
+For a transaction link, select the posted bank outflow for additional money
+lent or the posted bank inflow for a repayment. The amount and date must match
+the bank transaction exactly. Original principal can also be linked to a
+posted outflow of the original amount. Pending bank entries, transfers between
+your own accounts, adjustments and duplicate IOU links are rejected.
 
-The reminders are shown **only while viewing Money Lent**. There are currently
-no push alerts, scheduled background jobs, outbound texts or borrower communications.
-The notes field is text, not a file or signature attachment facility.
+Review a loan’s **History** to see original principal, additional advances,
+repayments and bank reference status. Incorrect manual events can be removed
+(with a balance-protection check); removing an IOU record never deletes its
+bank counterpart. Editing the loan’s schedule, title or borrower profile
+does not erase those histories.
 
-Amounts are in the app's budget currency. Deposit links require a usable value in
-that currency; foreign-currency deposits without a conversion are excluded.
-Bank data remains on your self-hosted installation. Borrower names and notes use
-the same at-rest encryption mechanism as the application's other sensitive fields.
+## Account and net-worth boundaries
 
-## Development / deployment
+These profiles are **informational receivable records**, not actual checking
+accounts or duplicate bank accounts. IOUs do not automatically appear as
+assets in net worth or as cash available to budget. A transfer from your
+checking to the borrower should continue to exist in your normal bank register,
+with normal accounting and categories. Linking one here is a reference only.
 
-Implementation is isolated under `server/src/features/personal-loans/` and
-`client/src/features/personal-loans/`; migrations are additive. Preserve the
-existing `/data` SQLite volume, secrets and Portainer environment variables.
-Back up the database before deploying a new image.
+If you already record a personal receivable as an **Other Asset** account,
+take care not to include the same debt twice in your financial reports.
+Loans use the budget currency. Existing posted transactions without a valid
+budget-currency conversion cannot be linked.
+
+The borrower names, profile notes and loan notes use the app’s at-rest
+encryption mechanism. An original loan’s title uses the same mechanism.
+In-app reminders are available for scheduled payments; this feature does not
+send texts, emails, push notifications or messages to other people.
+
+## Data integrity and installation
+
+Migration `0028_borrower_profiles_goal_links.sql` creates new profile,
+advance and goal-link tables and adds nullable links to existing loans.
+No existing loan rows are deleted or re-created.
+
+Preserve the existing Docker / Portainer database volume and encryption key.
+Back up the SQLite database **and the key** before deploying new images.
+Never reset the fork to upstream; merge and reconcile upstream migrations.

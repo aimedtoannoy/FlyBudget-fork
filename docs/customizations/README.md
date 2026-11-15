@@ -6,7 +6,11 @@ upstream directories (existing Plaid services, schema, register components).
 
 ## Money Lent / IOUs
 
-See [personal-loans.md](./personal-loans.md) for open-ended loans, installments, payment history and guarded posted-deposit links.
+See [personal-loans.md](./personal-loans.md) for borrower profiles, separate loans per person, additional credit, schedules and guarded posted-bank links.
+
+## Goal transaction linking
+
+See [goal-transactions.md](./goal-transactions.md) for reviewed and reversible goal contributions from posted bank transactions.
 
 ## Budget starting point
 
