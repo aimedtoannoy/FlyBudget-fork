@@ -540,7 +540,7 @@ export const personalLoans = sqliteTable('personal_loans', {
   id: text('id').primaryKey(),
   borrower: encryptedText('borrower').notNull(),
   profileId: text('profile_id').references(() => borrowerProfiles.id, { onDelete: 'set null' }),
-  title: text('title'),
+  title: encryptedText('title'),
   disbursementTransactionId: text('disbursement_transaction_id').references(
     () => transactions.id,
     { onDelete: 'set null' },
@@ -555,7 +555,9 @@ export const personalLoans = sqliteTable('personal_loans', {
   notes: encryptedText('notes'),
   createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
   updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
-});
+}, (table) => [
+  uniqueIndex('personal_loans_disbursement_tx_unique_idx').on(table.disbursementTransactionId),
+]);
 
 export const personalLoanRepayments = sqliteTable(
   'personal_loan_repayments',

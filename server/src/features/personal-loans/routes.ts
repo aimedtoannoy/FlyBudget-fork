@@ -248,6 +248,11 @@ personalLoansRouter.put('/:id', (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   const profile = resolveProfile(parsed.data.borrower, parsed.data.profileId);
   if (!profile) return res.status(404).json({ error: 'Profile not found' });
+  if (original.disbursementTransactionId && parsed.data.principal !== original.principal) {
+    return res.status(409).json({
+      error: 'Unlink the original bank transaction before changing the original loan amount',
+    });
+  }
   const advancesTotal = db.select({
     total: sql<number>`coalesce(sum(${personalLoanAdvances.amount}), 0)`,
   }).from(personalLoanAdvances)
