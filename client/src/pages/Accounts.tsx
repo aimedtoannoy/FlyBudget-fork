@@ -28,6 +28,7 @@ import { UnconvertedNote } from '../components/currency/UnconvertedNote';
 import NetWorthMini from '../components/dashboard/NetWorthMini';
 import { ACCOUNT_GROUPS, type Account, type AccountGroup } from '../types';
 import { AccountIcon } from '../components/accounts/AccountIcon';
+import { BankBalances } from '../components/accounts/BankBalances';
 import { accountTypeInfo, accountTypeLabel } from '../utils/accountTypes';
 
 function groupAccountsByType(accounts: Account[]) {
@@ -124,6 +125,9 @@ function AccountGroup({ label, accounts, balancesAgo }: AccountGroupProps) {
                 </div>
               </div>
               <span className="text-right">
+                {account.bankSource === 'plaid' && (
+                  <span className="block text-[11px] text-text-tertiary">FlyBudget ledger</span>
+                )}
                 <span className="block text-sm font-medium tabular-nums text-text">
                   {formatMoney(account.balance, account.currency)}
                 </span>
@@ -132,6 +136,7 @@ function AccountGroup({ label, accounts, balancesAgo }: AccountGroupProps) {
                     ≈ {formatCurrency(account.mainBalance)}
                   </span>
                 )}
+                <BankBalances account={account} compact />
               </span>
             </div>
           ))}

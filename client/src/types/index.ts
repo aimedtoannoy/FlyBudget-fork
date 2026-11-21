@@ -330,6 +330,12 @@ export interface Account {
   createdAt: string;
   /** In the account's own currency */
   balance: number;
+  /** Source of bank-reported snapshots, separate from the calculated ledger. */
+  bankSource?: 'plaid' | null;
+  bankCurrentBalance?: number | null;
+  bankAvailableBalance?: number | null;
+  /** Snapshot retrieval time, not proof of when the bank last updated it. */
+  bankBalanceFetchedAt?: string | null;
   /** ISO 4217: the account's own, or the budget's (null while the budget has none) */
   currency: string | null;
   /** The balance in the budget's currency at the latest rate; null without a rate */
@@ -776,7 +782,8 @@ export interface PlaidDiscoveredAccount {
   subtype: string | null;
   mask: string | null;
   suggestedType: AccountType;
-  currentBalance: number;
+  currentBalance: number | null;
+  availableBalance: number | null;
 }
 
 export interface PlaidAccountMapping {

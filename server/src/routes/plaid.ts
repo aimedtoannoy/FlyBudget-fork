@@ -17,6 +17,7 @@ import {
   getInstitutionName,
   mapPlaidAccountType,
   plaidBalanceToCents,
+  plaidBalanceSnapshot,
 } from '../services/plaidService.js';
 import { syncPlaidItem, syncAllItems } from '../services/plaidSyncService.js';
 import { cancelHostedLink, pollHostedLink, startHostedLink } from '../services/plaidHostedLink.js';
@@ -114,6 +115,7 @@ async function addPlaidItem(publicToken: string, institution: { id: string; name
   );
 
   const itemId = nanoid();
+  const balancesFetchedAt = new Date().toISOString();
   db.transaction((tx) => {
     tx.insert(plaidItems)
       .values({
@@ -141,6 +143,12 @@ async function addPlaidItem(publicToken: string, institution: { id: string; name
           plaidAccountType: acct.type,
           plaidAccountMask: acct.mask,
           currency: bankCurrency(acct.currency),
+          ...plaidBalanceSnapshot(
+            { current: acct.currentBalance, available: acct.availableBalance },
+            acct.type,
+            minorUnits(bankCurrency(acct.currency)),
+            balancesFetchedAt,
+          ),
           isEnabled: 1,
           createdAt: new Date().toISOString(),
         })
@@ -159,11 +167,14 @@ async function addPlaidItem(publicToken: string, institution: { id: string; name
       mask: a.mask,
       suggestedType: mapPlaidAccountType(a.type, a.subtype),
       // In the bank account's own decimals, like syncs (none for yen)
-      currentBalance: plaidBalanceToCents(
-        a.currentBalance,
-        a.type,
-        minorUnits(bankCurrency(a.currency)),
-      ),
+      currentBalance:
+        a.currentBalance === null
+          ? null
+          : plaidBalanceToCents(a.currentBalance, a.type, minorUnits(bankCurrency(a.currency))),
+      availableBalance:
+        a.availableBalance === null
+          ? null
+          : Math.round(a.availableBalance * 10 ** minorUnits(bankCurrency(a.currency))),
     })),
   };
 }

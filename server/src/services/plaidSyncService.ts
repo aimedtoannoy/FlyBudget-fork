@@ -6,7 +6,7 @@ import {
   syncTransactions,
   getCurrentPendingTransactions,
   plaidAmountToCents,
-  plaidBalanceToCents,
+  plaidBalanceSnapshot,
   type PlaidSyncResult,
 } from './plaidService.js';
 import { promotePendingPlaidTransaction } from '../features/pending-transactions/plaidPending.js';
@@ -213,16 +213,24 @@ export async function syncPlaidItem(plaidItemId: string): Promise<SyncResult> {
 
     for (const bal of syncData.accountBalances) {
       const mapping = mappingByPlaidId.get(bal.accountId);
-      if (!mapping || !mapping.accountId || !mapping.isEnabled) continue;
+      if (!mapping || !mapping.isEnabled) continue;
 
-      const targetBalance = plaidBalanceToCents(
-        bal.current,
+      // /accounts/get can return cached bank figures, not necessarily live balances.
+      const snapshot = plaidBalanceSnapshot(
+        bal,
         mapping.plaidAccountType,
         minorOf(mapping),
+        new Date().toISOString(),
       );
+      db.update(plaidAccountMappings)
+        .set(snapshot)
+        .where(eq(plaidAccountMappings.id, mapping.id))
+        .run();
 
-      const newStartingBalance = targetBalance - accountPostedTransactionSum(mapping.accountId);
-
+      // Keep the existing ledger reconciliation; absent current must not mean zero.
+      if (!mapping.accountId || snapshot.bankCurrentBalance === null) continue;
+      const newStartingBalance =
+        snapshot.bankCurrentBalance - accountPostedTransactionSum(mapping.accountId);
       db.update(accounts)
         .set({ startingBalance: newStartingBalance })
         .where(eq(accounts.id, mapping.accountId))

@@ -8,6 +8,7 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { formatCurrency, formatMoney } from '../utils/currency';
 import { TransactionTable } from '../components/transactions/TransactionTable';
 import { AccountIcon } from '../components/accounts/AccountIcon';
+import { BankBalances } from '../components/accounts/BankBalances';
 import { EditAccountModal } from '../components/accounts/EditAccountModal';
 import { UpdateValueModal } from '../components/accounts/UpdateValueModal';
 import { accountTypeInfo } from '../utils/accountTypes';
@@ -50,8 +51,10 @@ export default function AccountTransactionsPage() {
             <h1 className="text-lg font-semibold text-text">{account.name}</h1>
             <Badge variant={account.type} />
             <span
+              title="FlyBudget ledger balance, including pending transactions"
               className={`text-base font-medium tabular-nums ${account.balance < 0 ? 'text-negative' : 'text-text-secondary'}`}
             >
+              {account.bankSource === 'plaid' && 'Ledger: '}
               {formatMoney(account.balance, account.currency)}
             </span>
             {account.rateDate && account.mainBalance !== null && (
@@ -82,6 +85,7 @@ export default function AccountTransactionsPage() {
             )}
           </div>
         </div>
+        <BankBalances account={account} />
       </div>
       <TransactionTable accountId={account.id} />
       <EditAccountModal account={editOpen ? account : null} onClose={() => setEditOpen(false)} />

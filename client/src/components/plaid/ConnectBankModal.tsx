@@ -251,8 +251,13 @@ function AccountMappingCard({
             <span className="text-xs text-text-tertiary ml-2">****{account.mask}</span>
           )}
         </div>
-        <span className="text-sm font-medium text-text-secondary">
-          {formatCurrency(account.currentBalance)}
+        <span className="text-right text-xs tabular-nums text-text-secondary">
+          <span className="block">
+            Bank: {account.currentBalance === null ? 'Not provided' : formatCurrency(account.currentBalance)}
+          </span>
+          <span className="block text-text-tertiary">
+            Available: {account.availableBalance === null ? 'Not provided' : formatCurrency(account.availableBalance)}
+          </span>
         </span>
       </div>
 
