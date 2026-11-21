@@ -29,7 +29,7 @@ describe('BankBalances', () => {
     const zero = renderToStaticMarkup(
       <BankBalances account={{ ...account, bankAvailableBalance: 0 }} />,
     );
-    expect(zero).toContain('0.00');
+    expect(zero).toContain('$0');
     expect(zero).not.toContain('Not provided');
   });
 
