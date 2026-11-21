@@ -11,7 +11,13 @@ type BankAccount = Pick<
   | 'bankBalanceFetchedAt'
 >;
 
-export function BankBalances({ account, compact = false }: { account: BankAccount; compact?: boolean }) {
+export function BankBalances({
+  account,
+  compact = false,
+}: {
+  account: BankAccount;
+  compact?: boolean;
+}) {
   if (account.bankSource !== 'plaid') return null;
 
   const availableLabel =

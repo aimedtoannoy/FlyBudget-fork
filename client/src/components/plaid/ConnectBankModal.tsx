@@ -253,10 +253,16 @@ function AccountMappingCard({
         </div>
         <span className="text-right text-xs tabular-nums text-text-secondary">
           <span className="block">
-            Bank: {account.currentBalance === null ? 'Not provided' : formatCurrency(account.currentBalance)}
+            Bank:{' '}
+            {account.currentBalance === null
+              ? 'Not provided'
+              : formatCurrency(account.currentBalance)}
           </span>
           <span className="block text-text-tertiary">
-            Available: {account.availableBalance === null ? 'Not provided' : formatCurrency(account.availableBalance)}
+            Available:{' '}
+            {account.availableBalance === null
+              ? 'Not provided'
+              : formatCurrency(account.availableBalance)}
           </span>
         </span>
       </div>

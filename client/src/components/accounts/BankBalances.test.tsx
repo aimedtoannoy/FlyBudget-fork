@@ -34,6 +34,8 @@ describe('BankBalances', () => {
   });
 
   it('does not render bank data for an unlinked account', () => {
-    expect(renderToStaticMarkup(<BankBalances account={{ ...account, bankSource: null }} />)).toBe('');
+    expect(
+      renderToStaticMarkup(<BankBalances account={{ ...account, bankSource: null }} />),
+    ).toBe('');
   });
 });
