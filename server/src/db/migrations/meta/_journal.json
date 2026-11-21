@@ -211,6 +211,13 @@
       "when": 1792900000000,
       "tag": "0029_personal_loan_credits",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "6",
+      "when": 1792900001000,
+      "tag": "0030_plaid_bank_balances",
+      "breakpoints": true
     }
   ]
 }

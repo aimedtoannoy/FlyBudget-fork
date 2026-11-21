@@ -4,6 +4,7 @@ import {
   mapPlaidAccountType,
   plaidAmountToCents,
   plaidBalanceToCents,
+  plaidBalanceSnapshot,
   plaidBasePath,
 } from './plaidService.js';
 
@@ -60,5 +61,37 @@ describe('plaidAmountToCents', () => {
   it('flips Plaid sign (positive = money out) to app sign (negative = outflow)', () => {
     expect(plaidAmountToCents(12.34)).toBe(-1234);
     expect(plaidAmountToCents(-50)).toBe(5000);
+  });
+});
+
+describe('plaidBalanceSnapshot', () => {
+  const fetchedAt = '2026-11-21T22:00:00.000Z';
+
+  it('preserves current and available separately even if available is higher', () => {
+    expect(
+      plaidBalanceSnapshot({ current: 195.41, available: 108.83 }, 'depository', 2, fetchedAt),
+    ).toMatchObject({ bankCurrentBalance: 19541, bankAvailableBalance: 10883 });
+    expect(
+      plaidBalanceSnapshot({ current: 64.96, available: 71.25 }, 'depository', 2, fetchedAt),
+    ).toEqual({
+      bankCurrentBalance: 6496,
+      bankAvailableBalance: 7125,
+      bankBalanceFetchedAt: fetchedAt,
+    });
+  });
+
+  it('distinguishes missing fields from zero', () => {
+    expect(
+      plaidBalanceSnapshot({ current: 0, available: null }, 'depository', 2, fetchedAt),
+    ).toMatchObject({ bankCurrentBalance: 0, bankAvailableBalance: null });
+    expect(
+      plaidBalanceSnapshot({ current: null, available: 20 }, 'depository', 2, fetchedAt),
+    ).toMatchObject({ bankCurrentBalance: null, bankAvailableBalance: 2000 });
+  });
+
+  it('does not turn available credit into debt', () => {
+    expect(
+      plaidBalanceSnapshot({ current: 100, available: 900 }, 'credit', 2, fetchedAt),
+    ).toMatchObject({ bankCurrentBalance: -10000, bankAvailableBalance: 90000 });
   });
 });

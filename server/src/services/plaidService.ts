@@ -156,7 +156,7 @@ export interface PlaidAccountInfo {
   type: string;
   subtype: string | null;
   mask: string | null;
-  currentBalance: number;
+  currentBalance: number | null;
   availableBalance: number | null;
   /** ISO 4217, or null for Plaid's unofficial currencies (crypto) */
   currency: string | null;
@@ -179,7 +179,7 @@ export async function exchangePublicToken(publicToken: string) {
     type: a.type,
     subtype: a.subtype ?? null,
     mask: a.mask ?? null,
-    currentBalance: a.balances.current ?? 0,
+    currentBalance: a.balances.current ?? null,
     availableBalance: a.balances.available ?? null,
     currency: a.balances.iso_currency_code ?? null,
   }));
@@ -233,7 +233,7 @@ export interface PlaidSyncResult {
   nextCursor: string;
   accountBalances: Array<{
     accountId: string;
-    current: number;
+    current: number | null;
     available: number | null;
   }>;
 }
@@ -299,7 +299,7 @@ export async function syncTransactions(
     const balResponse = await client.accountsGet({ access_token: accessToken });
     accountBalances = balResponse.data.accounts.map((a) => ({
       accountId: a.account_id,
-      current: a.balances.current ?? 0,
+      current: a.balances.current ?? null,
       available: a.balances.available ?? null,
     }));
   } catch {
@@ -399,4 +399,21 @@ export function plaidBalanceToCents(balance: number, accountType: string, minor 
     return -Math.round(balance * 10 ** minor) || 0;
   }
   return Math.round(balance * 10 ** minor);
+}
+
+/** Preserve raw Plaid balances; never derive available from pending transactions.
+ * Current debt is negative in FlyBudget; available credit remains positive. */
+export function plaidBalanceSnapshot(
+  balances: { current: number | null; available: number | null },
+  accountType: string,
+  minor: number,
+  fetchedAt: string,
+) {
+  return {
+    bankCurrentBalance:
+      balances.current === null ? null : plaidBalanceToCents(balances.current, accountType, minor),
+    bankAvailableBalance:
+      balances.available === null ? null : Math.round(balances.available * 10 ** minor),
+    bankBalanceFetchedAt: fetchedAt,
+  };
 }

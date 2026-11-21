@@ -395,6 +395,12 @@ export const plaidAccountMappings = sqliteTable(
     plaidAccountMask: text('plaid_account_mask'),
     /** The bank account's currency (ISO 4217), for accounts created from it */
     currency: text('currency'),
+    /** Bank-reported current balance, independent of the ledger, in minor units. */
+    bankCurrentBalance: integer('bank_current_balance'),
+    /** Bank-reported available cash (or available credit), in minor units. */
+    bankAvailableBalance: integer('bank_available_balance'),
+    /** When FlyBudget fetched the snapshot; not the bank's own update time. */
+    bankBalanceFetchedAt: text('bank_balance_fetched_at'),
     isEnabled: integer('is_enabled').notNull().default(1),
     createdAt: text('created_at')
       .notNull()

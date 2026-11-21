@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { db } from '../db/index.js';
-import { accounts, transactions } from '../db/schema.js';
+import { accounts, plaidAccountMappings, transactions } from '../db/schema.js';
 import { and, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { z } from 'zod';
@@ -102,9 +102,36 @@ accountsRouter.get('/', (_req, res) => {
     .all();
 
   const sumMap = new Map(sums.map((s) => [s.accountId, s.sum]));
+  const mappings = db
+    .select({
+      accountId: plaidAccountMappings.accountId,
+      bankCurrentBalance: plaidAccountMappings.bankCurrentBalance,
+      bankAvailableBalance: plaidAccountMappings.bankAvailableBalance,
+      bankBalanceFetchedAt: plaidAccountMappings.bankBalanceFetchedAt,
+    })
+    .from(plaidAccountMappings)
+    .where(eq(plaidAccountMappings.isEnabled, 1))
+    .all();
+  const bankByAccount = new Map<string, (typeof mappings)[number]>();
+  for (const mapping of mappings) {
+    if (!mapping.accountId) continue;
+    const previous = bankByAccount.get(mapping.accountId);
+    if (!previous || (mapping.bankBalanceFetchedAt ?? '') > (previous.bankBalanceFetchedAt ?? '')) {
+      bankByAccount.set(mapping.accountId, mapping);
+    }
+  }
   const ctx = currencyContext();
   res.json(
-    rows.map((a) => shown(a, a.startingBalance + (sumMap.get(a.id) ?? 0), sumMap.has(a.id), ctx)),
+    rows.map((a) => {
+      const bank = bankByAccount.get(a.id);
+      return {
+        ...shown(a, a.startingBalance + (sumMap.get(a.id) ?? 0), sumMap.has(a.id), ctx),
+        bankSource: bank ? ('plaid' as const) : null,
+        bankCurrentBalance: bank?.bankCurrentBalance ?? null,
+        bankAvailableBalance: bank?.bankAvailableBalance ?? null,
+        bankBalanceFetchedAt: bank?.bankBalanceFetchedAt ?? null,
+      };
+    }),
   );
 });
 
