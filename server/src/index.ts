@@ -22,6 +22,7 @@ import {
   hstsWhenSecure,
 } from './middleware/security.js';
 import { accountsRouter } from './routes/accounts.js';
+import { mcphersonBankingRouter } from './mcpherson/banking/router.js';
 import { categoriesRouter } from './routes/categories.js';
 import { transactionsRouter } from './routes/transactions.js';
 import { budgetRouter } from './routes/budget.js';
@@ -94,6 +95,7 @@ app.use('/api', requireSession);
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 app.use('/api/server', serverRouter);
 app.use('/api/accounts', accountsRouter);
+app.use('/api/mcpherson/banking', mcphersonBankingRouter);
 app.use('/api/categories', categoriesRouter);
 app.use('/api/transactions', transactionsRouter);
 app.use('/api/budget', budgetRouter);
