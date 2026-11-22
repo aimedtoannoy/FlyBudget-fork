@@ -253,13 +253,9 @@ function AccountMappingCard({
           )}
         </div>
         <span className="text-right text-xs tabular-nums text-text-secondary">
-          <span className="block">
-            Bank:{' '}
-            {formatDiscoveredBalance(account.currentBalance, account.currency)}
-          </span>
+          <span className="block">Bank: {formatDiscoveredBalance(account.currentBalance, account.currency)}</span>
           <span className="block text-text-tertiary">
-            Available:{' '}
-            {formatDiscoveredBalance(account.availableBalance, account.currency)}
+            Available: {formatDiscoveredBalance(account.availableBalance, account.currency)}
           </span>
         </span>
       </div>
