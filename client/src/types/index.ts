@@ -782,6 +782,7 @@ export interface PlaidDiscoveredAccount {
   subtype: string | null;
   mask: string | null;
   suggestedType: AccountType;
+  currency: string;
   currentBalance: number | null;
   availableBalance: number | null;
 }
