@@ -77,6 +77,15 @@ jobs:
       - name: Normalize custom feature formatting and verify
         run: |
           npx prettier --write \
+            EXTENSIONS.md \
+            client/src/mcpherson/banking/formatDiscoveredBalance.ts \
+            client/src/mcpherson/banking/formatDiscoveredBalance.test.ts \
+            client/src/components/plaid/ConnectBankModal.tsx \
+            server/src/mcpherson/banking/contracts.ts \
+            server/src/mcpherson/banking/freshness.ts \
+            server/src/mcpherson/banking/freshness.test.ts \
+            website/docs/accounts.mdx \
+            website/docs/bank-sync.mdx \
             client/src/components/accounts/BankBalances.tsx \
             client/src/components/accounts/BankBalances.test.tsx \
             client/src/App.tsx \
