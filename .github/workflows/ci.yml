@@ -84,6 +84,9 @@ jobs:
             server/src/mcpherson/banking/contracts.ts \
             server/src/mcpherson/banking/freshness.ts \
             server/src/mcpherson/banking/freshness.test.ts \
+            server/src/mcpherson/banking/diagnostics.ts \
+            server/src/mcpherson/banking/diagnostics.test.ts \
+            server/src/mcpherson/banking/router.ts \
             website/docs/accounts.mdx \
             website/docs/bank-sync.mdx \
             client/src/components/accounts/BankBalances.tsx \
