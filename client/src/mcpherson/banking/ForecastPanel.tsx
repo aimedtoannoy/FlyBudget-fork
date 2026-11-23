@@ -41,7 +41,7 @@ export function ForecastPanel({ accountId, accountName }: { accountId: string; a
       {result && <div className="space-y-1 text-xs text-text-secondary">
         <p>Starting estimate: {money(result.startingBalance)} ({result.startingSource === 'bank_available' ? 'recently retrieved bank available' : 'pending-inclusive ledger'})</p>
         <p>Projected ending balance: {money(result.endingBalance)} · Lowest projected balance: {money(result.minimumBalance)}</p>
-        <p>Conservative amount after scheduled expenses and reserve: {money(result.safeToSpendNow)}</p>
+        <p>Illustrative remainder after known scheduled expenses and reserve (not spending advice): {money(result.safeToSpendNow)}</p>
         <p>Included scheduled occurrences: {result.scheduledOccurrenceCount} · Through {result.through}</p>
         {result.timeline.map((event) => <p key={event.id}>{event.date}: {money(event.amount)} · projected {money(event.projectedBalance)}</p>)}
         <p className="text-text-tertiary">{result.disclaimer}</p>
