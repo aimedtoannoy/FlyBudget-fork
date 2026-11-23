@@ -63,7 +63,8 @@ mcphersonBankingRouter.get('/reconciliation', (_req, res) => {
     const postedTransactionSum = accountPostedTransactionSum(account.id);
     return [inspectReconciliation({
       accountId: account.id,
-      currency: account.currency ?? budgetCurrency() ?? mapping.currency ?? 'USD',
+      currency: account.currency ?? budgetCurrency() ?? 'UNKNOWN',
+      bankCurrency: mapping.currency,
       startingBalance: account.startingBalance,
       postedTransactionSum,
       pendingTransactionSum: accountTransactionSum(account.id) - postedTransactionSum,
