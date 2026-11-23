@@ -7,6 +7,7 @@ export interface CashFlowEvent {
 }
 export interface CashFlowInput {
   asOf: string;
+  accountKind: 'cash' | 'credit' | 'other';
   available: number | null;
   postedLedger: number;
   pendingAmount: number;
@@ -16,6 +17,7 @@ export interface CashFlowInput {
 }
 
 export function forecastCashFlow(input: CashFlowInput) {
+  if (input.accountKind !== 'cash') throw new Error('Cash-flow availability forecast requires a cash account');
   const start = Date.parse(input.asOf + 'T00:00:00Z');
   if (!Number.isFinite(start)) throw new Error('Invalid forecast date');
   if (!Number.isSafeInteger(input.reserve) || input.reserve < 0) throw new Error('Invalid reserve');
