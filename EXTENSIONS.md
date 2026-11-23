@@ -30,6 +30,10 @@ This fork retains upstream FlyBudget as the base. Custom features must be indepe
 | Bank sync diagnostics | `server/src/mcpherson/banking/{router,diagnostics,freshness}.ts` | Phase 1 read-only | `server/src/index.ts` mounts authenticated `/api/mcpherson/banking/diagnostics` |
 | Reconciliation report | `server/src/mcpherson/banking/reconciliation.ts` | Phase 2 read-only preview | Authenticated `/api/mcpherson/banking/reconciliation`; never modifies balances |
 | Bank sync history | `server/src/mcpherson/banking/history.ts` and `server/src/db/migrations/0031_mc_bank_sync_history.sql` | Phase 1 | `plaidSyncService.ts` writes best-effort audit events and bank snapshots; `/api/mcpherson/banking/history` reads the latest 100 sync events |
+| Plaid transient retry | `server/src/mcpherson/banking/retry.ts` | Phase 1 | `plaidService.ts` wraps only Plaid transaction/balance requests with bounded retries |
+| Reconciliation rollout control | `server/src/mcpherson/banking/reconciliationMode.ts` | Phase 2 staging | `MC_BANK_RECONCILIATION_MODE=observe` disables automatic starting-balance alignment; default `legacy` preserves existing behavior |
+| Bank health alert candidates | `server/src/mcpherson/banking/alerts.ts` | Phase 5 preview | Diagnostics API includes on-screen warnings only; no push/email notifications |
+| Cash-flow scenario engine | `server/src/mcpherson/banking/forecast.ts` | Phase 4 foundation | Pure 7/14/30-day calculation, not yet connected to scheduled bills or account UI |
 | Bank health UI | `client/src/mcpherson/banking/BankHealthPanel.tsx` | Phase 1 read-only | `ConnectedAccounts.tsx` mounts the panel in Plaid settings |
 | Pending Plaid matching | `server/src/features/pending-transactions/plaidPending.ts` | Existing fork code | `plaidSyncService.ts` |
 | Balance snapshots | `plaidAccountMappings` | Existing fork code | `plaidSyncService.ts`, `routes/accounts.ts` |
@@ -37,6 +41,10 @@ This fork retains upstream FlyBudget as the base. Custom features must be indepe
 ## Data safety and rollout
 
 Migration `0031_mc_bank_sync_history.sql` adds only `mc_bank_sync_events` and `mc_bank_balance_snapshots` with foreign keys and indexes. It does not rewrite existing accounts, transactions, or Plaid data. Event rows contain status, counts and a short provider error code; no access tokens or bank credentials. Balance snapshots contain financial values and are accessible only to the server database, not the public diagnostics API. Audit writes are best-effort and cannot block a bank sync. Retention, backfill, and optional audit pruning are future work; the initial history API caps responses at 100 events. A backup and staging migration test are required before production rollout.
+
+## Reconciliation rollout safety
+
+Default `MC_BANK_RECONCILIATION_MODE=legacy` retains the upstream automatic starting-balance alignment. In staging only, set `MC_BANK_RECONCILIATION_MODE=observe` to keep imported bank snapshots and sync transactions without rewriting starting balances. Before enabling in production, review ledger drift and account opening balances against bank statements, and make a database backup. This toggle does **not** repair past adjustments. It is not a substitute for a full migration and historical reconciliation.
 
 ## Planned next modules
 
