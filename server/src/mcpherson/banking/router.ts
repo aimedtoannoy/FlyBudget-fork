@@ -112,6 +112,6 @@ mcphersonBankingRouter.get('/forecast/:accountId', (req, res) => {
   }
   const asOf = new Date().toISOString().slice(0, 10);
   const result = forecastAccount(req.params.accountId, days as 7 | 14 | 30, reserve, asOf);
-  if ('error' in result) return res.status(result.status).json({ error: result.error });
+  if ('error' in result) return res.status(result.status ?? 400).json({ error: result.error });
   res.json(result);
 });
