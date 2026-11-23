@@ -42,8 +42,9 @@ export function ForecastPanel({ accountId, accountName }: { accountId: string; a
         <p>Starting estimate: {money(result.startingBalance)} ({result.startingSource === 'bank_available' ? 'recently retrieved bank available' : 'pending-inclusive ledger'})</p>
         <p>Projected ending balance: {money(result.endingBalance)} · Lowest projected balance: {money(result.minimumBalance)}</p>
         <p>Illustrative remainder after known scheduled expenses and reserve (not spending advice): {money(result.safeToSpendNow)}</p>
-        <p>Included scheduled occurrences: {result.scheduledOccurrenceCount} · Through {result.through}</p>
-        {result.timeline.map((event) => <p key={event.id}>{event.date}: {money(event.amount)} · projected {money(event.projectedBalance)}</p>)}
+        <p>Included scheduled occurrences: {result.scheduledOccurrenceCount} (projected: {result.projectedOccurrenceCount}) · Through {result.through}</p>
+        {result.uncertainSchedules.length > 0 && <p role="status">{result.uncertainSchedules.length} schedules have uncertain amounts or recurrence rules; review them before relying on this estimate.</p>}
+        <div className="max-h-64 overflow-y-auto" aria-label="Projected transaction timeline">{result.timeline.map((event) => <p key={event.id}>{event.date}: {money(event.amount)} · projected {money(event.projectedBalance)}</p>)}</div>
         <p className="text-text-tertiary">{result.disclaimer}</p>
         {result.caveats.map((caveat) => <p key={caveat} className="text-text-tertiary">{caveat}</p>)}
         {!result.hasScheduledEvents && <p role="status">No pending scheduled occurrences were found. This is not evidence that no bills are due.</p>}
