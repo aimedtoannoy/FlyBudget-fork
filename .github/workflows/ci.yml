@@ -98,6 +98,8 @@ jobs:
             server/src/mcpherson/banking/retry.test.ts \
             server/src/mcpherson/banking/reconciliationMode.ts \
             server/src/mcpherson/banking/reconciliationMode.test.ts \
+            server/src/mcpherson/banking/reconciliationSafety.ts \
+            server/src/mcpherson/banking/reconciliationSafety.test.ts \
             server/src/mcpherson/banking/forecast.ts \
             server/src/mcpherson/banking/forecastAccount.ts \
             server/src/mcpherson/banking/forecastSources.ts \
