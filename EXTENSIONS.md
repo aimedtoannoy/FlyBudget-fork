@@ -49,3 +49,7 @@ Default `MC_BANK_RECONCILIATION_MODE=legacy` retains the upstream automatic star
 ## Planned next modules
 
 `bank-sync/` for durable sync events and detailed refresh metadata; `balance-integrity/` for non-destructive reconciliation; `pending-engine/` for lifecycle events; `cash-flow/` for deterministic forecasting. All require tests and explicit release review.
+
+### Live scheduled cash-flow preview
+
+The authenticated read-only endpoint `GET /api/mcpherson/banking/forecast/:accountId?days=14&reserve=20000` connects the deterministic forecast engine to existing **materialized** schedule occurrences for a checking/savings/cash account. `reserve` is expressed in the account's minor units (for USD, 20000 = $200). Supports 7, 14, and 30 days. Excludes matched/skipped schedules and internal transfers; uses bank available only if retrieved within 24 hours and currency-compatible, otherwise uses the pending-inclusive ledger. It does not invent recurring events missing from the schedule occurrence table. The endpoint is preview-only; no payment execution, transaction mutations or UI forecasting dashboard yet. Validate with staging data before production.
