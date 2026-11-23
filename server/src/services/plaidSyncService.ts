@@ -250,7 +250,7 @@ export async function syncPlaidItem(plaidItemId: string): Promise<SyncResult> {
         mappingCurrency: mapping.currency,
       })) continue;
       const newStartingBalance =
-        snapshot.bankCurrentBalance - accountPostedTransactionSum(mapping.accountId);
+        snapshot.bankCurrentBalance! - accountPostedTransactionSum(mapping.accountId);
       db.update(accounts)
         .set({ startingBalance: newStartingBalance })
         .where(eq(accounts.id, mapping.accountId))
