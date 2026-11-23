@@ -3,7 +3,8 @@ import { db } from '../../db/index.js';
 import { accounts, plaidAccountMappings, scheduleOccurrences, schedules } from '../../db/schema.js';
 import { accountPostedTransactionSum, accountTransactionSum } from '../../services/balances.js';
 import { forecastCashFlow } from './forecast.js';
-import { recentlyRetrievedBankAvailable, selectForecastEvents } from './forecastSources.js';
+import { recentlyRetrievedBankAvailable } from './forecastSources.js';
+import { projectScheduleEvents } from './projectSchedules.js';
 
 const CASH_TYPES = new Set(['checking', 'savings', 'cash']);
 
@@ -14,18 +15,21 @@ export function forecastAccount(accountId: string, days: 7 | 14 | 30, reserve: n
   if (!CASH_TYPES.has(account.type.toLowerCase())) return { error: 'Forecast requires a cash account', status: 422 } as const;
 
   const through = new Date(Date.parse(asOf + 'T00:00:00Z') + days * 86_400_000).toISOString().slice(0, 10);
+  const activeSchedules = db.select().from(schedules).where(eq(schedules.accountId, accountId)).all();
   const occurrences = db.select({
     id: scheduleOccurrences.id,
-    date: scheduleOccurrences.expectedDate,
-    amount: scheduleOccurrences.expectedAmount,
+    scheduleId: scheduleOccurrences.scheduleId,
+    scheduledDate: scheduleOccurrences.scheduledDate,
+    expectedDate: scheduleOccurrences.expectedDate,
+    expectedAmount: scheduleOccurrences.expectedAmount,
     status: scheduleOccurrences.status,
-    scheduleStatus: schedules.status,
-    transferAccountId: schedules.transferAccountId,
+    matchedTransactionId: scheduleOccurrences.matchedTransactionId,
   }).from(scheduleOccurrences)
     .innerJoin(schedules, eq(scheduleOccurrences.scheduleId, schedules.id))
     .where(and(eq(schedules.accountId, accountId), gte(scheduleOccurrences.expectedDate, asOf), lte(scheduleOccurrences.expectedDate, through)))
     .all();
-  const events = selectForecastEvents(occurrences);
+  const projection = projectScheduleEvents(activeSchedules, occurrences, asOf, through);
+  const events = projection.events;
 
   const mapping = db.select({
     available: plaidAccountMappings.bankAvailableBalance,
@@ -52,11 +56,13 @@ export function forecastAccount(accountId: string, days: 7 | 14 | 30, reserve: n
     accountId, accountName: account.name, currency: account.currency,
     bankBalanceFetchedAt: mapping?.fetchedAt ?? null,
     scheduledOccurrenceCount: events.length,
-    forecastCoverage: 'materialized_occurrences_only' as const,
+    forecastCoverage: 'projected_recurring_schedules' as const,
+    projectedOccurrenceCount: projection.projectedCount,
+    uncertainSchedules: projection.uncertain,
     hasScheduledEvents: events.length > 0,
     ...result,
     caveats: [
-      'Only existing pending schedule occurrences are included. Missing future occurrences and unscheduled bills are not estimated.',
+      'Active recurring schedules are projected without writing to the database. Unscheduled bills and unrecorded income are not estimated.',
       'Bank available funds are used only when fetched within 24 hours; retrieval time does not prove bank freshness.',
       'Transfers are excluded to avoid treating internal transfers as income or spending.',
     ],
