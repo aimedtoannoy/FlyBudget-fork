@@ -87,6 +87,8 @@ jobs:
             server/src/mcpherson/banking/diagnostics.ts \
             server/src/mcpherson/banking/diagnostics.test.ts \
             server/src/mcpherson/banking/router.ts \
+            server/src/mcpherson/banking/reconciliation.ts \
+            server/src/mcpherson/banking/reconciliation.test.ts \
             website/docs/accounts.mdx \
             website/docs/bank-sync.mdx \
             client/src/components/accounts/BankBalances.tsx \
