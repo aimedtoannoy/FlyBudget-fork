@@ -69,3 +69,7 @@ The authenticated read-only endpoint `GET /mcpherson/banking/alerts` produces de
 
 ### Phase 6 delivery safeguards (not yet activated)
 Local alert preferences are disabled by default, with minimum severity and 1–168 hour cooldown. Durable delivery state and an authenticated acknowledgement endpoint are included. The pure delivery policy handles opt-in, severity, acknowledgement, and repeat suppression. The user interface saves preferences, but no background scheduler, push, email, or in-app delivery activation is implemented yet. Never treat this as an active notification system.
+
+
+### Phase 6: on-demand in-app delivery
+The authenticated POST /mcpherson/banking/alert-inbox recomputes alerts on the server, then atomically applies opt-in, severity and cooldown rules to durable delivery state. Acknowledgements persist across reloads. Resolved alert IDs are purged so a later recurrence can alert again. The Bank Sync Health screen refreshes the inbox on load or manual refresh and supports acknowledgement. No external push/email, background job, payment, or Plaid sync is initiated by the inbox. This is an on-demand in-app notification system, not an unattended monitor. Validate against a staging database before production.

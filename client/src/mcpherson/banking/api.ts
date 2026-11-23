@@ -95,3 +95,13 @@ export const getFinancialAlerts = () => apiFetch<FinancialAlertsResponse>('/mcph
 export interface AlertPreferences { enabled: boolean; minimumSeverity: 'info' | 'warning' | 'critical'; cooldownHours: number }
 export const getAlertPreferences = () => apiFetch<AlertPreferences>('/mcpherson/banking/alert-preferences');
 export const saveAlertPreferences = (value: AlertPreferences) => apiFetch<AlertPreferences>('/mcpherson/banking/alert-preferences', { method: 'PUT', body: JSON.stringify(value) });
+
+export interface AlertInboxResponse {
+  generatedAt: string;
+  delivery: 'in_app_only';
+  enabled: boolean;
+  newlyDelivered: number;
+  alerts: FinancialAlertsResponse['alerts'];
+}
+export const getAlertInbox = () => apiFetch<AlertInboxResponse>('/mcpherson/banking/alert-inbox', { method: 'POST' });
+export const acknowledgeFinancialAlert = (id: string) => apiFetch<{ acknowledged: boolean }>('/mcpherson/banking/alert-acknowledgements', { method: 'POST', body: JSON.stringify({ id }) });

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { db } from '../../db/index.js';
 import { accounts, mcBankSyncEvents, plaidAccountMappings, plaidItems } from '../../db/schema.js';
-import { desc, eq } from 'drizzle-orm';
+import { desc, eq, notInArray } from 'drizzle-orm';
 import { accountPostedTransactionSum, accountTransactionSum } from '../../services/balances.js';
 import { budgetCurrency } from '../../services/mainAmountService.js';
 import { inspectReconciliation } from './reconciliation.js';
@@ -9,9 +9,9 @@ import { buildBankDiagnostics } from './diagnostics.js';
 import { bankingAlertCandidates, forecastAlertCandidates, prioritizeAlerts, reconciliationAlertCandidates } from './alerts.js';
 import { forecastAccount } from './forecastAccount.js';
 import { mcAlertPreferences, mcAlertDeliveryState } from '../../db/schema.js';
-import { DEFAULT_ALERT_PREFERENCES, validAlertPreferences } from './delivery.js';
+import { DEFAULT_ALERT_PREFERENCES, eligibleAlertIds, validAlertPreferences } from './delivery.js';
 
-/** Mounted behind the app's existing requireSession middleware. Read-only. */
+/** Mounted behind the app's existing requireSession middleware. */
 export const mcphersonBankingRouter = Router();
 
 mcphersonBankingRouter.get('/diagnostics', (_req, res) => {
@@ -119,8 +119,7 @@ mcphersonBankingRouter.get('/forecast/:accountId', (req, res) => {
 });
 
 /** On-demand, read-only financial alert inbox. No scheduler, push, email, or account writes. */
-mcphersonBankingRouter.get('/alerts', (_req, res) => {
-  const now = Date.now();
+function generateCurrentAlerts(now: number) {
   const asOf = new Date(now).toISOString().slice(0, 10);
   const items = db.select({ id: plaidItems.id, institutionName: plaidItems.institutionName, lastSyncedAt: plaidItems.lastSyncedAt, syncStatus: plaidItems.syncStatus, syncError: plaidItems.syncError }).from(plaidItems).all();
   const mappings = db.select({ plaidItemId: plaidAccountMappings.plaidItemId, accountId: plaidAccountMappings.accountId, plaidAccountName: plaidAccountMappings.plaidAccountName, isEnabled: plaidAccountMappings.isEnabled, bankBalanceFetchedAt: plaidAccountMappings.bankBalanceFetchedAt, bankCurrentBalance: plaidAccountMappings.bankCurrentBalance, bankAvailableBalance: plaidAccountMappings.bankAvailableBalance, currency: plaidAccountMappings.currency }).from(plaidAccountMappings).all();
@@ -149,7 +148,38 @@ mcphersonBankingRouter.get('/alerts', (_req, res) => {
     if ('error' in forecast) continue;
     forecastAlerts.push(...forecastAlertCandidates({ accountId, accountName: account.name, available: forecast.startingBalance, safeToSpendNow: forecast.safeToSpendNow, reserve: forecast.reserve, through: forecast.through, timeline: forecast.timeline, uncertainSchedules: forecast.uncertainSchedules }));
   }
-  res.json({ generatedAt: new Date(now).toISOString(), mode: 'preview', notificationsSent: false, explanation: 'Read-only estimates; no bank refresh, notification delivery or automated transactions. Bank and ledger timestamps may differ.', alerts: prioritizeAlerts([...bankAlerts, ...reconciliationAlertCandidates(reconciliationInputs), ...forecastAlerts]) });
+  return prioritizeAlerts([...bankAlerts, ...reconciliationAlertCandidates(reconciliationInputs), ...forecastAlerts]);
+}
+
+mcphersonBankingRouter.get('/alerts', (_req, res) => {
+  const now = Date.now();
+  res.json({ generatedAt: new Date(now).toISOString(), mode: 'preview', notificationsSent: false, explanation: 'Read-only estimates; no bank refresh or outbound notifications. Bank and ledger timestamps may differ.', alerts: generateCurrentAlerts(now) });
+});
+
+/** On-demand in-app inbox; recomputes all candidates server-side, never accepts client alert content. */
+mcphersonBankingRouter.post('/alert-inbox', (_req, res) => {
+  const now = Date.now();
+  const alerts = generateCurrentAlerts(now);
+  const result = db.transaction(() => {
+    const row = db.select().from(mcAlertPreferences).where(eq(mcAlertPreferences.id, 'default')).get();
+    const preferences = row ? { enabled: row.enabled === 1, minimumSeverity: row.minimumSeverity as 'info' | 'warning' | 'critical', cooldownHours: row.cooldownHours } : DEFAULT_ALERT_PREFERENCES;
+    if (!preferences.enabled) return { enabled: false, alerts: [], newlyDelivered: 0 };
+    // Resolution clears old suppression; a later recurrence can alert again.
+    const activeIds = alerts.map((alert) => alert.id);
+    if (activeIds.length) db.delete(mcAlertDeliveryState).where(notInArray(mcAlertDeliveryState.alertId, activeIds)).run();
+    else db.delete(mcAlertDeliveryState).run();
+    const existing = new Map(db.select().from(mcAlertDeliveryState).all().map((entry) => [entry.alertId, entry]));
+    const eligible = new Set(eligibleAlertIds(alerts, preferences, existing, now));
+    for (const alert of alerts) {
+      if (!eligible.has(alert.id)) continue;
+      db.insert(mcAlertDeliveryState).values({ alertId: alert.id, lastShownAt: new Date(now).toISOString(), acknowledgedAt: null })
+        .onConflictDoUpdate({ target: mcAlertDeliveryState.alertId, set: { lastShownAt: new Date(now).toISOString(), acknowledgedAt: null } }).run();
+    }
+    const current = db.select().from(mcAlertDeliveryState).all();
+    const visible = new Set(current.filter((entry) => !entry.acknowledgedAt).map((entry) => entry.alertId));
+    return { enabled: true, newlyDelivered: eligible.size, alerts: alerts.filter((alert) => visible.has(alert.id)) };
+  });
+  res.json({ ...result, generatedAt: new Date(now).toISOString(), delivery: 'in_app_only' });
 });
 
 /** Preferences are opt-in and local; no external messages are sent. */
