@@ -3,8 +3,10 @@ import { formatMoney } from '../../utils/currency';
 import {
   getBankDiagnostics,
   getBankReconciliation,
+  getBankSyncHistory,
   type BankDiagnosticsResponse,
   type BankReconciliationResponse,
+  type BankSyncHistoryResponse,
 } from './api';
 
 const showTime = (value: string | null) => value ? new Date(value).toLocaleString() : 'Not yet recorded';
@@ -13,18 +15,21 @@ const showTime = (value: string | null) => value ? new Date(value).toLocaleStrin
 export function BankHealthPanel() {
   const [diagnostics, setDiagnostics] = useState<BankDiagnosticsResponse | null>(null);
   const [reconciliation, setReconciliation] = useState<BankReconciliationResponse | null>(null);
+  const [history, setHistory] = useState<BankSyncHistoryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const refresh = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [nextDiagnostics, nextReconciliation] = await Promise.all([
+      const [nextDiagnostics, nextReconciliation, nextHistory] = await Promise.all([
         getBankDiagnostics(),
         getBankReconciliation(),
+        getBankSyncHistory(),
       ]);
       setDiagnostics(nextDiagnostics);
       setReconciliation(nextReconciliation);
+      setHistory(nextHistory);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not load bank diagnostics');
     } finally {
@@ -44,6 +49,9 @@ export function BankHealthPanel() {
       <p className="text-xs text-text-tertiary">This report is read-only. Freshness is based on FlyBudget retrieval time, not a verified bank refresh. Refreshing the report does not sync Plaid.</p>
       {error && <p role="alert" className="text-xs text-negative">{error}</p>}
       {diagnostics && diagnostics.institutions.length === 0 && <p className="text-xs text-text-secondary">No Plaid institutions connected.</p>}
+      {history && history.events.length > 0 && (
+        <p className="text-xs text-text-secondary">Recent Plaid sync attempts: {history.events.length} (latest: {showTime(history.events[0].occurredAt)} · {history.events[0].status}).</p>
+      )}
       {diagnostics?.institutions.map((item) => (
         <div key={item.itemId} className="rounded-md bg-surface-alt p-3 space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
