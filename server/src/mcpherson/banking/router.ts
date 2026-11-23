@@ -6,7 +6,7 @@ import { accountPostedTransactionSum, accountTransactionSum } from '../../servic
 import { budgetCurrency } from '../../services/mainAmountService.js';
 import { inspectReconciliation } from './reconciliation.js';
 import { buildBankDiagnostics } from './diagnostics.js';
-import { bankingAlertCandidates } from './alerts.js';
+import { bankingAlertCandidates, forecastAlertCandidates, prioritizeAlerts, reconciliationAlertCandidates } from './alerts.js';
 import { forecastAccount } from './forecastAccount.js';
 
 /** Mounted behind the app's existing requireSession middleware. Read-only. */
@@ -114,4 +114,38 @@ mcphersonBankingRouter.get('/forecast/:accountId', (req, res) => {
   const result = forecastAccount(req.params.accountId, days as 7 | 14 | 30, reserve, asOf);
   if ('error' in result) return res.status(result.status ?? 400).json({ error: result.error });
   res.json(result);
+});
+
+/** On-demand, read-only financial alert inbox. No scheduler, push, email, or account writes. */
+mcphersonBankingRouter.get('/alerts', (_req, res) => {
+  const now = Date.now();
+  const asOf = new Date(now).toISOString().slice(0, 10);
+  const items = db.select({ id: plaidItems.id, institutionName: plaidItems.institutionName, lastSyncedAt: plaidItems.lastSyncedAt, syncStatus: plaidItems.syncStatus, syncError: plaidItems.syncError }).from(plaidItems).all();
+  const mappings = db.select({ plaidItemId: plaidAccountMappings.plaidItemId, accountId: plaidAccountMappings.accountId, plaidAccountName: plaidAccountMappings.plaidAccountName, isEnabled: plaidAccountMappings.isEnabled, bankBalanceFetchedAt: plaidAccountMappings.bankBalanceFetchedAt, bankCurrentBalance: plaidAccountMappings.bankCurrentBalance, bankAvailableBalance: plaidAccountMappings.bankAvailableBalance, currency: plaidAccountMappings.currency }).from(plaidAccountMappings).all();
+  const diagnostics = buildBankDiagnostics(items, mappings, now);
+  const bankAlerts = bankingAlertCandidates(diagnostics.flatMap((item) => [
+    { itemId: item.itemId, institutionName: item.institutionName, status: item.status, transactionFreshness: item.transactionSyncFreshness, accountName: null, balanceFreshness: null },
+    ...item.accounts.map((account) => ({ itemId: item.itemId, institutionName: item.institutionName, status: 'good', transactionFreshness: 'fresh' as const, accountName: account.accountName, balanceFreshness: account.balanceRetrievalFreshness })),
+  ]));
+  const enabled = mappings.filter((mapping) => mapping.isEnabled === 1 && mapping.accountId);
+  const accountsById = new Map(db.select().from(accounts).all().map((account) => [account.id, account]));
+  const latest = new Map<string, (typeof enabled)[number]>();
+  for (const mapping of enabled) {
+    const prior = latest.get(mapping.accountId!);
+    if (!prior || (mapping.bankBalanceFetchedAt ?? '') > (prior.bankBalanceFetchedAt ?? '')) latest.set(mapping.accountId!, mapping);
+  }
+  const reconciliationInputs = [];
+  const forecastAlerts = [];
+  for (const [accountId, mapping] of latest) {
+    const account = accountsById.get(accountId);
+    if (!account) continue;
+    const postedSum = accountPostedTransactionSum(accountId);
+    const result = inspectReconciliation({ accountId, currency: account.currency ?? budgetCurrency() ?? 'UNKNOWN', bankCurrency: mapping.currency, startingBalance: account.startingBalance, postedTransactionSum: postedSum, pendingTransactionSum: accountTransactionSum(accountId) - postedSum, bankCurrentBalance: mapping.bankCurrentBalance, bankAvailableBalance: mapping.bankAvailableBalance, bankBalanceFetchedAt: mapping.bankBalanceFetchedAt });
+    reconciliationInputs.push(result);
+    if (!['checking', 'savings', 'cash'].includes(account.type.toLowerCase())) continue;
+    const forecast = forecastAccount(accountId, 14, 0, asOf);
+    if ('error' in forecast) continue;
+    forecastAlerts.push(...forecastAlertCandidates({ accountId, accountName: account.name, available: forecast.startingBalance, safeToSpendNow: forecast.safeToSpendNow, reserve: forecast.reserve, through: forecast.through, timeline: forecast.timeline, uncertainSchedules: forecast.uncertainSchedules }));
+  }
+  res.json({ generatedAt: new Date(now).toISOString(), mode: 'preview', notificationsSent: false, explanation: 'Read-only estimates; no bank refresh, notification delivery or automated transactions. Bank and ledger timestamps may differ.', alerts: prioritizeAlerts([...bankAlerts, ...reconciliationAlertCandidates(reconciliationInputs), ...forecastAlerts]) });
 });

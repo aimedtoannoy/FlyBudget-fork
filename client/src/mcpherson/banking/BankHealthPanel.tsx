@@ -3,6 +3,8 @@ import { formatMoney } from '../../utils/currency';
 import { ForecastPanel } from './ForecastPanel';
 import {
   getBankDiagnostics,
+  getFinancialAlerts,
+  type FinancialAlertsResponse,
   getBankReconciliation,
   getBankSyncHistory,
   type BankDiagnosticsResponse,
@@ -15,6 +17,7 @@ const showTime = (value: string | null) => value ? new Date(value).toLocaleStrin
 /** Optional fork-owned UI. Never triggers a bank sync or changes account balances. */
 export function BankHealthPanel() {
   const [diagnostics, setDiagnostics] = useState<BankDiagnosticsResponse | null>(null);
+  const [financialAlerts, setFinancialAlerts] = useState<FinancialAlertsResponse | null>(null);
   const [reconciliation, setReconciliation] = useState<BankReconciliationResponse | null>(null);
   const [history, setHistory] = useState<BankSyncHistoryResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -23,12 +26,14 @@ export function BankHealthPanel() {
     setLoading(true);
     setError(null);
     try {
-      const [nextDiagnostics, nextReconciliation, nextHistory] = await Promise.all([
+      const [nextDiagnostics, nextReconciliation, nextHistory, nextAlerts] = await Promise.all([
         getBankDiagnostics(),
         getBankReconciliation(),
         getBankSyncHistory(),
+        getFinancialAlerts(),
       ]);
       setDiagnostics(nextDiagnostics);
+      setFinancialAlerts(nextAlerts);
       setReconciliation(nextReconciliation);
       setHistory(nextHistory);
     } catch (err) {
@@ -49,7 +54,13 @@ export function BankHealthPanel() {
       </div>
       <p className="text-xs text-text-tertiary">This report is read-only. Freshness is based on FlyBudget retrieval time, not a verified bank refresh. Refreshing the report does not sync Plaid.</p>
       {error && <p role="alert" className="text-xs text-negative">{error}</p>}
-      {diagnostics?.alerts.map((alert, index) => (
+      {financialAlerts && <div className="rounded-md border border-border p-3 space-y-2" aria-label="Financial alert preview">
+        <h4 className="text-xs font-semibold text-text">Financial alerts (preview only)</h4>
+        <p className="text-xs text-text-tertiary">No push or email notifications are sent. Alerts are estimates based on recorded data.</p>
+        {financialAlerts.alerts.length === 0 && <p className="text-xs text-text-secondary">No current alerts.</p>}
+        {financialAlerts.alerts.map((alert) => <p key={alert.id} className="text-xs text-text-secondary" role={alert.severity === 'critical' ? 'alert' : 'status'}>{alert.severity === 'critical' ? 'Urgent' : alert.severity === 'warning' ? 'Review' : 'Upcoming'}: {alert.message}</p>)}
+      </div>}
+      {false && diagnostics?.alerts.map((alert, index) => (
         <p key={`${alert.itemId}-${alert.code}-${index}`} className="text-xs text-text-secondary" role="status">{alert.severity === 'critical' ? 'Action needed' : 'Attention'}: {alert.message}</p>
       ))}
       {diagnostics && diagnostics.institutions.length === 0 && <p className="text-xs text-text-secondary">No Plaid institutions connected.</p>}

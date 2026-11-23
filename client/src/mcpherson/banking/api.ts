@@ -82,3 +82,12 @@ export interface AccountForecastResponse {
 }
 export const getAccountForecast = (accountId: string, days: 7 | 14 | 30, reserve: number) =>
   apiFetch<AccountForecastResponse>(`/mcpherson/banking/forecast/${encodeURIComponent(accountId)}?days=${days}&reserve=${reserve}`);
+
+export interface FinancialAlertsResponse {
+  generatedAt: string;
+  mode: 'preview';
+  notificationsSent: false;
+  explanation: string;
+  alerts: Array<{ id: string; itemId: string; accountId?: string; severity: 'info' | 'warning' | 'critical'; code: string; message: string; action: 'reconnect' | 'review_sync' | 'review_balance' | 'review_forecast' }>;
+}
+export const getFinancialAlerts = () => apiFetch<FinancialAlertsResponse>('/mcpherson/banking/alerts');

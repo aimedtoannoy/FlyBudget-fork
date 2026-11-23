@@ -61,3 +61,7 @@ The McPherson bank health panel includes an on-demand 7/14/30-day forecast previ
 ### Phase 4: recurring forecast projection
 
 The read-only cash-flow endpoint now projects active recurrence rules (once, weekly, biweekly, semimonthly, monthly, quarterly, semiannual, annual) through the selected horizon. It reuses the existing recurrence engine, honors weekend adjustments, overlays materialized pending occurrences by schedule and scheduled date, and excludes paid/skipped/matched items and internal transfers. Projection does **not** generate database records. Non-exact amounts and invalid rules are explicitly flagged. Unscheduled expenses, bank refresh latency, and uncertain paychecks still limit the forecast; the displayed remainder is illustrative, not a guarantee of spendable funds.
+
+
+### Phase 6: Financial alert preview
+The authenticated read-only endpoint `GET /mcpherson/banking/alerts` produces deterministic, deduplicated, severity-ranked candidates for bank reconnect, sync staleness/errors, reconciliation discrepancies, 14-day scheduled bills, projected overdraft, zero estimated safe-to-spend, and uncertain schedules. The Bank Sync Health panel displays this preview. No email, push, cron, automatic payments, or notification preferences are activated. Alerts reflect retrieval-time data, not verified live bank updates. Validate on staging before enabling outbound delivery.
