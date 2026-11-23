@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { formatMoney } from '../../utils/currency';
+import { ForecastPanel } from './ForecastPanel';
 import {
   getBankDiagnostics,
   getBankReconciliation,
@@ -69,6 +70,7 @@ export function BankHealthPanel() {
                 <p className="text-xs font-medium text-text">{account.accountName}</p>
                 <p className="text-xs text-text-secondary">Balance retrieval: {account.balanceRetrievalFreshness} · {showTime(account.balanceFetchedAt)}</p>
                 <p className="text-xs text-text-tertiary">Bank refresh time: unknown · Current balance: {account.hasCurrentBalance ? 'provided' : 'not provided'} · Available: {account.hasAvailableBalance ? 'provided' : 'not provided'}</p>
+                {account.accountId && <ForecastPanel accountId={account.accountId} accountName={account.accountName} />}
                 {comparison && <p className="text-xs text-text-secondary">Ledger comparison: {comparison.state}{comparison.currentDifference !== null ? ` · Difference: ${formatMoney(comparison.currentDifference, comparison.currency)}` : ''}</p>}
               </div>
             );
