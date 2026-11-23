@@ -2,7 +2,8 @@ import { and, eq, gte, lte } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { accounts, plaidAccountMappings, scheduleOccurrences, schedules } from '../../db/schema.js';
 import { accountPostedTransactionSum, accountTransactionSum } from '../../services/balances.js';
-import { forecastCashFlow, type CashFlowEvent } from './forecast.js';
+import { forecastCashFlow } from './forecast.js';
+import { recentlyRetrievedBankAvailable, selectForecastEvents } from './forecastSources.js';
 
 const CASH_TYPES = new Set(['checking', 'savings', 'cash']);
 
@@ -24,9 +25,7 @@ export function forecastAccount(accountId: string, days: 7 | 14 | 30, reserve: n
     .innerJoin(schedules, eq(scheduleOccurrences.scheduleId, schedules.id))
     .where(and(eq(schedules.accountId, accountId), gte(scheduleOccurrences.expectedDate, asOf), lte(scheduleOccurrences.expectedDate, through)))
     .all();
-  const events: CashFlowEvent[] = occurrences
-    .filter((o) => o.status === 'pending' && o.scheduleStatus === 'active' && o.transferAccountId === null)
-    .map((o) => ({ id: o.id, date: o.date, amount: o.amount, kind: o.amount >= 0 ? 'income' : 'bill' }));
+  const events = selectForecastEvents(occurrences);
 
   const mapping = db.select({
     available: plaidAccountMappings.bankAvailableBalance,
@@ -36,12 +35,15 @@ export function forecastAccount(accountId: string, days: 7 | 14 | 30, reserve: n
     .where(and(eq(plaidAccountMappings.accountId, accountId), eq(plaidAccountMappings.isEnabled, 1)))
     .all().sort((a, b) => (b.fetchedAt ?? '').localeCompare(a.fetchedAt ?? ''))[0];
   // Cached availability must never silently be represented as live bank funds.
-  const freshAvailable = mapping?.fetchedAt && Date.now() - Date.parse(mapping.fetchedAt) < 24 * 60 * 60 * 1000 &&
-    Date.parse(mapping.fetchedAt) <= Date.now() &&
-    (!mapping.currency || !account.currency || mapping.currency === account.currency)
-    ? mapping.available : null;
-  const posted = account.startingBalance + accountPostedTransactionSum(accountId);
-  const pending = accountTransactionSum(accountId) - accountPostedTransactionSum(accountId);
+  const freshAvailable = recentlyRetrievedBankAvailable({
+    fetchedAt: mapping?.fetchedAt ?? null,
+    available: mapping?.available ?? null,
+    bankCurrency: mapping?.currency ?? null,
+    accountCurrency: account.currency,
+  }, Date.now());
+  const postedSum = accountPostedTransactionSum(accountId);
+  const posted = account.startingBalance + postedSum;
+  const pending = accountTransactionSum(accountId) - postedSum;
   const result = forecastCashFlow({
     asOf, days, accountKind: 'cash', available: freshAvailable ?? null,
     postedLedger: posted, pendingAmount: pending, reserve, events,
