@@ -8,6 +8,8 @@ import { inspectReconciliation } from './reconciliation.js';
 import { buildBankDiagnostics } from './diagnostics.js';
 import { bankingAlertCandidates, forecastAlertCandidates, prioritizeAlerts, reconciliationAlertCandidates } from './alerts.js';
 import { forecastAccount } from './forecastAccount.js';
+import { mcAlertPreferences, mcAlertDeliveryState } from '../../db/schema.js';
+import { DEFAULT_ALERT_PREFERENCES, validAlertPreferences } from './delivery.js';
 
 /** Mounted behind the app's existing requireSession middleware. Read-only. */
 export const mcphersonBankingRouter = Router();
@@ -148,4 +150,25 @@ mcphersonBankingRouter.get('/alerts', (_req, res) => {
     forecastAlerts.push(...forecastAlertCandidates({ accountId, accountName: account.name, available: forecast.startingBalance, safeToSpendNow: forecast.safeToSpendNow, reserve: forecast.reserve, through: forecast.through, timeline: forecast.timeline, uncertainSchedules: forecast.uncertainSchedules }));
   }
   res.json({ generatedAt: new Date(now).toISOString(), mode: 'preview', notificationsSent: false, explanation: 'Read-only estimates; no bank refresh, notification delivery or automated transactions. Bank and ledger timestamps may differ.', alerts: prioritizeAlerts([...bankAlerts, ...reconciliationAlertCandidates(reconciliationInputs), ...forecastAlerts]) });
+});
+
+/** Preferences are opt-in and local; no external messages are sent. */
+mcphersonBankingRouter.get('/alert-preferences', (_req, res) => {
+  const row = db.select().from(mcAlertPreferences).where(eq(mcAlertPreferences.id, 'default')).get();
+  res.json(row ? { enabled: row.enabled === 1, minimumSeverity: row.minimumSeverity, cooldownHours: row.cooldownHours } : DEFAULT_ALERT_PREFERENCES);
+});
+mcphersonBankingRouter.put('/alert-preferences', (req, res) => {
+  if (!validAlertPreferences(req.body)) return res.status(400).json({ error: 'Invalid alert preferences' });
+  const value = req.body;
+  db.insert(mcAlertPreferences).values({ id: 'default', enabled: value.enabled ? 1 : 0, minimumSeverity: value.minimumSeverity, cooldownHours: value.cooldownHours })
+    .onConflictDoUpdate({ target: mcAlertPreferences.id, set: { enabled: value.enabled ? 1 : 0, minimumSeverity: value.minimumSeverity, cooldownHours: value.cooldownHours } }).run();
+  res.json(value);
+});
+mcphersonBankingRouter.post('/alert-acknowledgements', (req, res) => {
+  const id = req.body?.id;
+  if (typeof id !== 'string' || id.length > 256 || !/^[a-zA-Z0-9:_-]+$/.test(id)) return res.status(400).json({ error: 'Invalid alert ID' });
+  const existing = db.select().from(mcAlertDeliveryState).where(eq(mcAlertDeliveryState.alertId, id)).get();
+  if (!existing) return res.status(404).json({ error: 'Alert not delivered' });
+  db.update(mcAlertDeliveryState).set({ acknowledgedAt: new Date().toISOString() }).where(eq(mcAlertDeliveryState.alertId, id)).run();
+  res.json({ acknowledged: true });
 });

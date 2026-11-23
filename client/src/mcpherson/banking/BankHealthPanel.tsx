@@ -4,6 +4,9 @@ import { ForecastPanel } from './ForecastPanel';
 import {
   getBankDiagnostics,
   getFinancialAlerts,
+  getAlertPreferences,
+  saveAlertPreferences,
+  type AlertPreferences,
   type FinancialAlertsResponse,
   getBankReconciliation,
   getBankSyncHistory,
@@ -18,6 +21,7 @@ const showTime = (value: string | null) => value ? new Date(value).toLocaleStrin
 export function BankHealthPanel() {
   const [diagnostics, setDiagnostics] = useState<BankDiagnosticsResponse | null>(null);
   const [financialAlerts, setFinancialAlerts] = useState<FinancialAlertsResponse | null>(null);
+  const [preferences, setPreferences] = useState<AlertPreferences | null>(null);
   const [reconciliation, setReconciliation] = useState<BankReconciliationResponse | null>(null);
   const [history, setHistory] = useState<BankSyncHistoryResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -26,14 +30,16 @@ export function BankHealthPanel() {
     setLoading(true);
     setError(null);
     try {
-      const [nextDiagnostics, nextReconciliation, nextHistory, nextAlerts] = await Promise.all([
+      const [nextDiagnostics, nextReconciliation, nextHistory, nextAlerts, nextPreferences] = await Promise.all([
         getBankDiagnostics(),
         getBankReconciliation(),
         getBankSyncHistory(),
         getFinancialAlerts(),
+        getAlertPreferences(),
       ]);
       setDiagnostics(nextDiagnostics);
       setFinancialAlerts(nextAlerts);
+      setPreferences(nextPreferences);
       setReconciliation(nextReconciliation);
       setHistory(nextHistory);
     } catch (err) {
@@ -54,6 +60,14 @@ export function BankHealthPanel() {
       </div>
       <p className="text-xs text-text-tertiary">This report is read-only. Freshness is based on FlyBudget retrieval time, not a verified bank refresh. Refreshing the report does not sync Plaid.</p>
       {error && <p role="alert" className="text-xs text-negative">{error}</p>}
+      {preferences && <div className="rounded-md border border-border p-3 space-y-2">
+        <h4 className="text-xs font-semibold text-text">Future in-app alert preferences</h4>
+        <p className="text-xs text-text-tertiary">Preferences are stored locally; delivery is not activated yet. No push or email is sent.</p>
+        <label className="flex items-center gap-2 text-xs text-text"><input type="checkbox" checked={preferences.enabled} onChange={(e) => setPreferences({ ...preferences, enabled: e.target.checked })} /> Opt in to future in-app alerts</label>
+        <label className="text-xs text-text">Minimum severity <select className="ml-2 border border-border rounded p-1" value={preferences.minimumSeverity} onChange={(e) => setPreferences({ ...preferences, minimumSeverity: e.target.value as AlertPreferences['minimumSeverity'] })}><option value="info">All</option><option value="warning">Warnings and critical</option><option value="critical">Critical only</option></select></label>
+        <label className="block text-xs text-text">Cooldown hours <input className="ml-2 w-16 border border-border rounded p-1" type="number" min="1" max="168" value={preferences.cooldownHours} onChange={(e) => setPreferences({ ...preferences, cooldownHours: Number(e.target.value) })} /></label>
+        <button type="button" className="text-xs text-brand-600 hover:underline" onClick={() => void saveAlertPreferences(preferences).then(setPreferences).catch((err) => setError(err instanceof Error ? err.message : 'Unable to save preferences'))}>Save preferences</button>
+      </div>}
       {financialAlerts && <div className="rounded-md border border-border p-3 space-y-2" aria-label="Financial alert preview">
         <h4 className="text-xs font-semibold text-text">Financial alerts (preview only)</h4>
         <p className="text-xs text-text-tertiary">No push or email notifications are sent. Alerts are estimates based on recorded data.</p>

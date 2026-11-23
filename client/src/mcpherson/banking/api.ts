@@ -91,3 +91,7 @@ export interface FinancialAlertsResponse {
   alerts: Array<{ id: string; itemId: string; accountId?: string; severity: 'info' | 'warning' | 'critical'; code: string; message: string; action: 'reconnect' | 'review_sync' | 'review_balance' | 'review_forecast' }>;
 }
 export const getFinancialAlerts = () => apiFetch<FinancialAlertsResponse>('/mcpherson/banking/alerts');
+
+export interface AlertPreferences { enabled: boolean; minimumSeverity: 'info' | 'warning' | 'critical'; cooldownHours: number }
+export const getAlertPreferences = () => apiFetch<AlertPreferences>('/mcpherson/banking/alert-preferences');
+export const saveAlertPreferences = (value: AlertPreferences) => apiFetch<AlertPreferences>('/mcpherson/banking/alert-preferences', { method: 'PUT', body: JSON.stringify(value) });
