@@ -7,6 +7,7 @@ import { budgetCurrency } from '../../services/mainAmountService.js';
 import { inspectReconciliation } from './reconciliation.js';
 import { buildBankDiagnostics } from './diagnostics.js';
 import { bankingAlertCandidates } from './alerts.js';
+import { forecastAccount } from './forecastAccount.js';
 
 /** Mounted behind the app's existing requireSession middleware. Read-only. */
 export const mcphersonBankingRouter = Router();
@@ -100,4 +101,17 @@ mcphersonBankingRouter.get('/history', (_req, res) => {
     errorCode: mcBankSyncEvents.errorCode,
   }).from(mcBankSyncEvents).orderBy(desc(mcBankSyncEvents.occurredAt)).limit(100).all();
   res.json({ events: recent });
+});
+
+/** Preview-only; does not mutate balances, schedules, or transactions. */
+mcphersonBankingRouter.get('/forecast/:accountId', (req, res) => {
+  const days = Number(req.query.days ?? 14);
+  const reserve = Number(req.query.reserve ?? 0);
+  if (![7, 14, 30].includes(days) || !Number.isSafeInteger(reserve) || reserve < 0) {
+    return res.status(400).json({ error: 'Use days=7,14,30 and a nonnegative reserve in minor units' });
+  }
+  const asOf = new Date().toISOString().slice(0, 10);
+  const result = forecastAccount(req.params.accountId, days as 7 | 14 | 30, reserve, asOf);
+  if ('error' in result) return res.status(result.status).json({ error: result.error });
+  res.json(result);
 });
