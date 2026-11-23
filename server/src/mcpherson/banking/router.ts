@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { db } from '../../db/index.js';
-import { accounts, plaidAccountMappings, plaidItems } from '../../db/schema.js';
-import { eq } from 'drizzle-orm';
+import { accounts, mcBankSyncEvents, plaidAccountMappings, plaidItems } from '../../db/schema.js';
+import { desc, eq } from 'drizzle-orm';
 import { accountPostedTransactionSum, accountTransactionSum } from '../../services/balances.js';
 import { budgetCurrency } from '../../services/mainAmountService.js';
 import { inspectReconciliation } from './reconciliation.js';
@@ -74,4 +74,18 @@ mcphersonBankingRouter.get('/reconciliation', (_req, res) => {
     })];
   });
   res.json({ generatedAt: new Date().toISOString(), accounts: results });
+});
+
+/** Latest sync attempts, limited and sanitized for operational troubleshooting. */
+mcphersonBankingRouter.get('/history', (_req, res) => {
+  const recent = db.select({
+    itemId: mcBankSyncEvents.plaidItemId,
+    occurredAt: mcBankSyncEvents.occurredAt,
+    status: mcBankSyncEvents.status,
+    added: mcBankSyncEvents.addedCount,
+    modified: mcBankSyncEvents.modifiedCount,
+    removed: mcBankSyncEvents.removedCount,
+    errorCode: mcBankSyncEvents.errorCode,
+  }).from(mcBankSyncEvents).orderBy(desc(mcBankSyncEvents.occurredAt)).limit(100).all();
+  res.json({ events: recent });
 });
