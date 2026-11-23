@@ -6,6 +6,7 @@ import { accountPostedTransactionSum, accountTransactionSum } from '../../servic
 import { budgetCurrency } from '../../services/mainAmountService.js';
 import { inspectReconciliation } from './reconciliation.js';
 import { buildBankDiagnostics } from './diagnostics.js';
+import { bankingAlertCandidates } from './alerts.js';
 
 /** Mounted behind the app's existing requireSession middleware. Read-only. */
 export const mcphersonBankingRouter = Router();
@@ -28,10 +29,21 @@ mcphersonBankingRouter.get('/diagnostics', (_req, res) => {
     bankAvailableBalance: plaidAccountMappings.bankAvailableBalance,
   }).from(plaidAccountMappings).all();
 
+  const institutions = buildBankDiagnostics(items, mappings, Date.now());
+  const alerts = bankingAlertCandidates(institutions.flatMap((item) => [
+    { itemId: item.itemId, institutionName: item.institutionName, status: item.status,
+      transactionFreshness: item.transactionSyncFreshness, accountName: null, balanceFreshness: null },
+    ...item.accounts.map((account) => ({
+      itemId: item.itemId, institutionName: item.institutionName, status: 'good',
+      transactionFreshness: 'fresh' as const, accountName: account.accountName,
+      balanceFreshness: account.balanceRetrievalFreshness,
+    })),
+  ]));
   res.json({
     generatedAt: new Date().toISOString(),
     interpretation: 'Freshness measures when FlyBudget retrieved data, not when the bank updated it.',
-    institutions: buildBankDiagnostics(items, mappings, Date.now()),
+    institutions,
+    alerts,
   });
 });
 
