@@ -118,6 +118,12 @@ export async function syncPlaidItem(plaidItemId: string): Promise<SyncResult> {
       result.added++;
     };
 
+    // Do not resurrect stale authorizations from a lagging pending backfill.
+    const supersededPendingIds = new Set(syncData.added.flatMap((tx) =>
+      !tx.pending && tx.pendingTransactionId ? [tx.pendingTransactionId] : [],
+    ));
+    const removedPlaidIds = new Set(syncData.removed.map((tx) => tx.transactionId));
+
     // Backfill the pending authorizations that older FlyBudget builds silently skipped
     // BEFORE applying new posted events. Otherwise a newly booked charge could be
     // inserted before its matching authorization is recovered, creating a duplicate.
@@ -125,7 +131,10 @@ export async function syncPlaidItem(plaidItemId: string): Promise<SyncResult> {
     if (!pendingBackfilled) {
       try {
         const missed = await getCurrentPendingTransactions(item.accessToken);
-        for (const tx of missed) importAdded(tx);
+        for (const tx of missed) {
+          if (supersededPendingIds.has(tx.transactionId) || removedPlaidIds.has(tx.transactionId)) continue;
+          importAdded(tx);
+        }
         pendingBackfilled = true;
       } catch (err) {
         logError('Plaid pending-transaction backfill failed; will retry', err);
