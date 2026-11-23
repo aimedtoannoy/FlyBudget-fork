@@ -4,6 +4,7 @@ export type Freshness = 'unknown' | 'fresh' | 'aging' | 'stale';
 export interface BankDiagnosticsResponse {
   generatedAt: string;
   interpretation: string;
+  alerts: Array<{ itemId: string; severity: 'warning' | 'critical'; code: string; message: string }>;
   institutions: Array<{
     itemId: string;
     institutionName: string;
