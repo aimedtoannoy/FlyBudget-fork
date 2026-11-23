@@ -98,6 +98,7 @@ jobs:
             server/src/mcpherson/banking/reconciliationMode.ts \
             server/src/mcpherson/banking/reconciliationMode.test.ts \
             server/src/mcpherson/banking/forecast.ts \
+            server/src/mcpherson/banking/forecastAccount.ts \
             server/src/mcpherson/banking/forecast.test.ts \
             server/src/mcpherson/banking/alerts.ts \
             server/src/mcpherson/banking/alerts.test.ts \
