@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { forecastCashFlow } from './forecast.js';
 
-const base = { asOf: '2026-11-22', available: 100_00, postedLedger: 120_00, pendingAmount: -20_00, reserve: 20_00, days: 7 as const };
+const base = { asOf: '2026-11-22', accountKind: 'cash' as const, available: 100_00, postedLedger: 120_00, pendingAmount: -20_00, reserve: 20_00, days: 7 as const };
 
 describe('deterministic cash flow', () => {
   it('reserves for bills without assuming future income is available now', () => {
@@ -17,6 +17,9 @@ describe('deterministic cash flow', () => {
     const result = forecastCashFlow({ ...base, available: null, events: [] });
     expect(result.startingBalance).toBe(100_00);
     expect(result.startingSource).toBe('ledger_pending');
+  });
+  it('refuses to count credit availability as cash', () => {
+    expect(() => forecastCashFlow({ ...base, accountKind: 'credit', events: [] })).toThrow('cash account');
   });
   it('excludes events beyond the horizon and keeps zero bank balances', () => {
     const result = forecastCashFlow({ ...base, available: 0, events: [
