@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { formatMoney } from '../../utils/currency';
-import { minorUnits } from '../../utils/currencies';
 import { getAccountForecast, type AccountForecastResponse } from './api';
 
 /** Read-only preview. A forecast is not a bank-verified spendable balance. */
@@ -12,15 +11,14 @@ export function ForecastPanel({ accountId, accountName }: { accountId: string; a
   const [error, setError] = useState<string | null>(null);
   async function preview() {
     const amount = Number(reserve);
-    const multiplier = 10 ** minorUnits(result?.currency ?? null);
-    if (!Number.isFinite(amount) || amount < 0 || !Number.isSafeInteger(Math.round(amount * multiplier))) {
+    if (!Number.isFinite(amount) || amount < 0 || !Number.isSafeInteger(amount)) {
       setError('Enter a valid nonnegative reserve amount.');
       return;
     }
     setLoading(true);
     setError(null);
     setResult(null);
-    try { setResult(await getAccountForecast(accountId, days, Math.round(amount * multiplier))); }
+    try { setResult(await getAccountForecast(accountId, days, amount)); }
     catch (err) { setError(err instanceof Error ? err.message : 'Forecast unavailable'); }
     finally { setLoading(false); }
   }
@@ -34,8 +32,8 @@ export function ForecastPanel({ accountId, accountName }: { accountId: string; a
             <option value={7}>7 days</option><option value={14}>14 days</option><option value={30}>30 days</option>
           </select>
         </label>
-        <label className="text-xs text-text-secondary">Reserve (account currency)
-          <input className="block w-28 rounded border border-border bg-surface p-1" type="number" min="0" step="0.01" value={reserve} onChange={(e) => { setReserve(e.target.value); setResult(null); }} />
+        <label className="text-xs text-text-secondary">Reserve (minor units, e.g. cents)
+          <input className="block w-28 rounded border border-border bg-surface p-1" type="number" min="0" step="1" value={reserve} onChange={(e) => { setReserve(e.target.value); setResult(null); }} />
         </label>
         <button type="button" disabled={loading} onClick={() => void preview()} className="rounded border border-border px-2 py-1 text-xs text-text">{loading ? 'Calculating…' : 'Preview'}</button>
       </div>
