@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { db } from '../../db/index.js';
 import { mcBankBalanceSnapshots, mcBankSyncEvents } from '../../db/schema.js';
+import { logError } from '../../utils/log.js';
 
 /** Record only sync metadata. Never persist Plaid credentials or full provider errors. */
 export function recordBankSyncEvent(input: {
@@ -11,7 +12,8 @@ export function recordBankSyncEvent(input: {
   removed: number;
   errorCode?: string | null;
 }) {
-  db.insert(mcBankSyncEvents).values({
+  try {
+    db.insert(mcBankSyncEvents).values({
     id: randomUUID(),
     plaidItemId: input.plaidItemId,
     occurredAt: new Date().toISOString(),
@@ -20,7 +22,10 @@ export function recordBankSyncEvent(input: {
     modifiedCount: input.modified,
     removedCount: input.removed,
     errorCode: input.errorCode?.slice(0, 80) ?? null,
-  }).run();
+    }).run();
+  } catch (err) {
+    logError('McPherson sync audit recording failed', err);
+  }
 }
 
 /** Persist exactly what Plaid returned, including null vs zero. */
@@ -31,12 +36,16 @@ export function recordBankBalanceSnapshot(input: {
   available: number | null;
   currency: string | null;
 }) {
-  db.insert(mcBankBalanceSnapshots).values({
+  try {
+    db.insert(mcBankBalanceSnapshots).values({
     id: randomUUID(),
     mappingId: input.mappingId,
     fetchedAt: input.fetchedAt,
     currentMinor: input.current,
     availableMinor: input.available,
     currency: input.currency,
-  }).run();
+    }).run();
+  } catch (err) {
+    logError('McPherson balance snapshot recording failed', err);
+  }
 }
