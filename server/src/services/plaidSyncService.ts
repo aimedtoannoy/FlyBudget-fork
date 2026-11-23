@@ -16,6 +16,7 @@ import { minorUnits } from '../utils/currencies.js';
 import { accountPostedTransactionSum } from './balances.js';
 import { deleteTransactionRow } from './transactionHelpers.js';
 import { syncedTransferChange } from './transferService.js';
+import { recordBankSyncEvent, recordBankBalanceSnapshot } from '../mcpherson/banking/history.js';
 
 export interface SyncResult {
   itemId: string;
@@ -222,6 +223,13 @@ export async function syncPlaidItem(plaidItemId: string): Promise<SyncResult> {
         minorOf(mapping),
         new Date().toISOString(),
       );
+      recordBankBalanceSnapshot({
+        mappingId: mapping.id,
+        fetchedAt: snapshot.bankBalanceFetchedAt!,
+        current: snapshot.bankCurrentBalance,
+        available: snapshot.bankAvailableBalance,
+        currency: mapping.currency,
+      });
       db.update(plaidAccountMappings)
         .set(snapshot)
         .where(eq(plaidAccountMappings.id, mapping.id))
@@ -237,6 +245,10 @@ export async function syncPlaidItem(plaidItemId: string): Promise<SyncResult> {
         .run();
     }
 
+    recordBankSyncEvent({
+      plaidItemId, status: 'good', added: result.added,
+      modified: result.modified, removed: result.removed,
+    });
     db.update(plaidItems)
       .set({
         cursor: syncData.nextCursor,
@@ -263,6 +275,11 @@ export async function syncPlaidItem(plaidItemId: string): Promise<SyncResult> {
       .where(eq(plaidItems.id, plaidItemId))
       .run();
 
+    recordBankSyncEvent({
+      plaidItemId, status: syncStatus, added: result.added,
+      modified: result.modified, removed: result.removed,
+      errorCode,
+    });
     result.errors.push(errorMessage);
   }
 
