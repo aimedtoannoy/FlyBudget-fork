@@ -53,3 +53,7 @@ Default `MC_BANK_RECONCILIATION_MODE=legacy` retains the upstream automatic star
 ### Live scheduled cash-flow preview
 
 The authenticated read-only endpoint `GET /api/mcpherson/banking/forecast/:accountId?days=14&reserve=20000` connects the deterministic forecast engine to existing **materialized** schedule occurrences for a checking/savings/cash account. `reserve` is expressed in the account's minor units (for USD, 20000 = $200). Supports 7, 14, and 30 days. Excludes matched/skipped schedules and internal transfers; uses bank available only if retrieved within 24 hours and currency-compatible, otherwise uses the pending-inclusive ledger. It does not invent recurring events missing from the schedule occurrence table. The endpoint is preview-only; no payment execution, transaction mutations or UI forecasting dashboard yet. Validate with staging data before production.
+
+### Forecast settings preview (batch 4)
+
+The McPherson bank health panel includes an on-demand 7/14/30-day forecast preview per linked account. Cash accounts are supported; credit and other accounts return a clear validation error. Reserve input is **minor units** (cents for USD) to avoid silently assuming all currencies have two decimal places. Results explicitly disclose missing scheduled occurrences and the difference between bank retrieval time and bank data freshness. The view makes no writes and does not initiate Plaid sync.
