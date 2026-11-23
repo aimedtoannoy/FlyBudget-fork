@@ -667,3 +667,15 @@ export const personalLoanCredits = sqliteTable(
   },
   (table) => [index('personal_loan_credits_loan_idx').on(table.loanId)],
 );
+
+export const mcAlertPreferences = sqliteTable('mc_alert_preferences', {
+  id: text('id').primaryKey(),
+  enabled: integer('enabled').notNull().default(0),
+  minimumSeverity: text('minimum_severity').notNull().default('warning'),
+  cooldownHours: integer('cooldown_hours').notNull().default(24),
+});
+export const mcAlertDeliveryState = sqliteTable('mc_alert_delivery_state', {
+  alertId: text('alert_id').primaryKey(),
+  lastShownAt: text('last_shown_at').notNull(),
+  acknowledgedAt: text('acknowledged_at'),
+});
