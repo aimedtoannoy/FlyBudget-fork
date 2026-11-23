@@ -237,7 +237,8 @@ export async function syncPlaidItem(plaidItemId: string): Promise<SyncResult> {
       });
 
       // Keep the existing ledger reconciliation; absent current must not mean zero.
-      if (!mapping.accountId || !shouldAutoAlignStartingBalance(reconciliationMode(process.env.MC_BANK_RECONCILIATION_MODE), snapshot.bankCurrentBalance)) continue;
+      if (!mapping.accountId || snapshot.bankCurrentBalance === null ||
+        !shouldAutoAlignStartingBalance(reconciliationMode(process.env.MC_BANK_RECONCILIATION_MODE), snapshot.bankCurrentBalance)) continue;
       const newStartingBalance =
         snapshot.bankCurrentBalance - accountPostedTransactionSum(mapping.accountId);
       db.update(accounts)
