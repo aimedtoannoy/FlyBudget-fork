@@ -93,6 +93,15 @@ jobs:
             server/src/mcpherson/banking/reconciliation.ts \
             server/src/mcpherson/banking/reconciliation.test.ts \
             server/src/mcpherson/banking/history.ts \
+            server/src/mcpherson/banking/retry.ts \
+            server/src/mcpherson/banking/retry.test.ts \
+            server/src/mcpherson/banking/reconciliationMode.ts \
+            server/src/mcpherson/banking/reconciliationMode.test.ts \
+            server/src/mcpherson/banking/forecast.ts \
+            server/src/mcpherson/banking/forecast.test.ts \
+            server/src/mcpherson/banking/alerts.ts \
+            server/src/mcpherson/banking/alerts.test.ts \
+            server/src/services/plaidService.ts \
             server/src/services/plaidSyncService.ts \
             server/src/db/schema.ts \
             server/src/db/migrations/meta/_journal.json \
