@@ -80,6 +80,9 @@ jobs:
             EXTENSIONS.md \
             client/src/mcpherson/banking/formatDiscoveredBalance.ts \
             client/src/mcpherson/banking/formatDiscoveredBalance.test.ts \
+            client/src/mcpherson/banking/api.ts \
+            client/src/mcpherson/banking/BankHealthPanel.tsx \
+            client/src/components/settings/ConnectedAccounts.tsx \
             client/src/components/plaid/ConnectBankModal.tsx \
             server/src/mcpherson/banking/contracts.ts \
             server/src/mcpherson/banking/freshness.ts \
