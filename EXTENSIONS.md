@@ -29,9 +29,14 @@ This fork retains upstream FlyBudget as the base. Custom features must be indepe
 | Banking contracts | `server/src/mcpherson/banking/contracts.ts` | Phase 0 | Shared extension contracts |
 | Bank sync diagnostics | `server/src/mcpherson/banking/{router,diagnostics,freshness}.ts` | Phase 1 read-only | `server/src/index.ts` mounts authenticated `/api/mcpherson/banking/diagnostics` |
 | Reconciliation report | `server/src/mcpherson/banking/reconciliation.ts` | Phase 2 read-only preview | Authenticated `/api/mcpherson/banking/reconciliation`; never modifies balances |
+| Bank sync history | `server/src/mcpherson/banking/history.ts` and `server/src/db/migrations/0031_mc_bank_sync_history.sql` | Phase 1 | `plaidSyncService.ts` writes best-effort audit events and bank snapshots; `/api/mcpherson/banking/history` reads the latest 100 sync events |
 | Bank health UI | `client/src/mcpherson/banking/BankHealthPanel.tsx` | Phase 1 read-only | `ConnectedAccounts.tsx` mounts the panel in Plaid settings |
 | Pending Plaid matching | `server/src/features/pending-transactions/plaidPending.ts` | Existing fork code | `plaidSyncService.ts` |
 | Balance snapshots | `plaidAccountMappings` | Existing fork code | `plaidSyncService.ts`, `routes/accounts.ts` |
+
+## Data safety and rollout
+
+Migration `0031_mc_bank_sync_history.sql` adds only `mc_bank_sync_events` and `mc_bank_balance_snapshots` with foreign keys and indexes. It does not rewrite existing accounts, transactions, or Plaid data. Event rows contain status, counts and a short provider error code; no access tokens or bank credentials. Balance snapshots contain financial values and are accessible only to the server database, not the public diagnostics API. Audit writes are best-effort and cannot block a bank sync. Retention, backfill, and optional audit pruning are future work; the initial history API caps responses at 100 events. A backup and staging migration test are required before production rollout.
 
 ## Planned next modules
 
