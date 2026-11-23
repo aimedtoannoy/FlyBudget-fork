@@ -33,6 +33,12 @@ describe('read-only reconciliation', () => {
     expect(zero.currentDifference).toBe(-8500);
   });
 
+  it('does not compare bank balances in a different currency', () => {
+    const result = inspectReconciliation({ ...input, bankCurrency: 'EUR' });
+    expect(result.state).toBe('currency_mismatch');
+    expect(result.currentDifference).toBeNull();
+  });
+
   it('never assumes available balance equals current minus pending', () => {
     const result = inspectReconciliation({ ...input, bankAvailableBalance: 2000 });
     expect(result.bankAvailableBalance).toBe(2000);
