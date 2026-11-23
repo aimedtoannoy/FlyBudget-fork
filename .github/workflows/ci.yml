@@ -102,6 +102,7 @@ jobs:
             server/src/mcpherson/banking/reconciliationSafety.test.ts \
             server/src/features/pending-transactions/plaidSplitSync.ts \
             server/src/features/pending-transactions/plaidSplitSync.test.ts \
+            server/src/features/pending-transactions/plaidLifecycle.test.ts \
             server/src/mcpherson/banking/forecast.ts \
             server/src/mcpherson/banking/forecastAccount.ts \
             server/src/mcpherson/banking/forecastSources.ts \
