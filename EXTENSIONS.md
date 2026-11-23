@@ -57,3 +57,7 @@ The authenticated read-only endpoint `GET /api/mcpherson/banking/forecast/:accou
 ### Forecast settings preview (batch 4)
 
 The McPherson bank health panel includes an on-demand 7/14/30-day forecast preview per linked account. Cash accounts are supported; credit and other accounts return a clear validation error. Reserve input is **minor units** (cents for USD) to avoid silently assuming all currencies have two decimal places. Results explicitly disclose missing scheduled occurrences and the difference between bank retrieval time and bank data freshness. The view makes no writes and does not initiate Plaid sync.
+
+### Phase 4: recurring forecast projection
+
+The read-only cash-flow endpoint now projects active recurrence rules (once, weekly, biweekly, semimonthly, monthly, quarterly, semiannual, annual) through the selected horizon. It reuses the existing recurrence engine, honors weekend adjustments, overlays materialized pending occurrences by schedule and scheduled date, and excludes paid/skipped/matched items and internal transfers. Projection does **not** generate database records. Non-exact amounts and invalid rules are explicitly flagged. Unscheduled expenses, bank refresh latency, and uncertain paychecks still limit the forecast; the displayed remainder is illustrative, not a guarantee of spendable funds.
