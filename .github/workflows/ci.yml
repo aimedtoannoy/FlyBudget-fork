@@ -92,6 +92,10 @@ jobs:
             server/src/mcpherson/banking/router.ts \
             server/src/mcpherson/banking/reconciliation.ts \
             server/src/mcpherson/banking/reconciliation.test.ts \
+            server/src/mcpherson/banking/history.ts \
+            server/src/services/plaidSyncService.ts \
+            server/src/db/schema.ts \
+            server/src/db/migrations/meta/_journal.json \
             website/docs/accounts.mdx \
             website/docs/bank-sync.mdx \
             client/src/components/accounts/BankBalances.tsx \
