@@ -43,3 +43,17 @@ export const getBankDiagnostics = () =>
   apiFetch<BankDiagnosticsResponse>('/mcpherson/banking/diagnostics');
 export const getBankReconciliation = () =>
   apiFetch<BankReconciliationResponse>('/mcpherson/banking/reconciliation');
+
+export interface BankSyncHistoryResponse {
+  events: Array<{
+    itemId: string;
+    occurredAt: string;
+    status: string;
+    added: number;
+    modified: number;
+    removed: number;
+    errorCode: string | null;
+  }>;
+}
+export const getBankSyncHistory = () =>
+  apiFetch<BankSyncHistoryResponse>('/mcpherson/banking/history');
