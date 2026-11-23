@@ -28,6 +28,8 @@ This fork retains upstream FlyBudget as the base. Custom features must be indepe
 | Bank-currency display | `client/src/mcpherson/banking/formatDiscoveredBalance.ts` | Phase 0 | `ConnectBankModal.tsx` |
 | Banking contracts | `server/src/mcpherson/banking/contracts.ts` | Phase 0 | Shared extension contracts |
 | Bank sync diagnostics | `server/src/mcpherson/banking/{router,diagnostics,freshness}.ts` | Phase 1 read-only | `server/src/index.ts` mounts authenticated `/api/mcpherson/banking/diagnostics` |
+| Reconciliation report | `server/src/mcpherson/banking/reconciliation.ts` | Phase 2 read-only preview | Authenticated `/api/mcpherson/banking/reconciliation`; never modifies balances |
+| Bank health UI | `client/src/mcpherson/banking/BankHealthPanel.tsx` | Phase 1 read-only | `ConnectedAccounts.tsx` mounts the panel in Plaid settings |
 | Pending Plaid matching | `server/src/features/pending-transactions/plaidPending.ts` | Existing fork code | `plaidSyncService.ts` |
 | Balance snapshots | `plaidAccountMappings` | Existing fork code | `plaidSyncService.ts`, `routes/accounts.ts` |
 
