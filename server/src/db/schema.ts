@@ -411,6 +411,27 @@ export const plaidAccountMappings = sqliteTable(
   ],
 );
 
+// McPherson extension-owned append-only Plaid sync history.
+export const mcBankSyncEvents = sqliteTable('mc_bank_sync_events', {
+  id: text('id').primaryKey(),
+  plaidItemId: text('plaid_item_id').notNull().references(() => plaidItems.id, { onDelete: 'cascade' }),
+  occurredAt: text('occurred_at').notNull(),
+  status: text('status').notNull(),
+  addedCount: integer('added_count').notNull().default(0),
+  modifiedCount: integer('modified_count').notNull().default(0),
+  removedCount: integer('removed_count').notNull().default(0),
+  errorCode: text('error_code'),
+});
+
+export const mcBankBalanceSnapshots = sqliteTable('mc_bank_balance_snapshots', {
+  id: text('id').primaryKey(),
+  mappingId: text('mapping_id').notNull().references(() => plaidAccountMappings.id, { onDelete: 'cascade' }),
+  fetchedAt: text('fetched_at').notNull(),
+  currentMinor: integer('current_minor'),
+  availableMinor: integer('available_minor'),
+  currency: text('currency'),
+});
+
 // --- Enable Banking (European banks, PSD2) ---
 
 /** The user's own Enable Banking application (single row, id='default'). */
