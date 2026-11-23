@@ -223,6 +223,10 @@ export async function syncPlaidItem(plaidItemId: string): Promise<SyncResult> {
         minorOf(mapping),
         new Date().toISOString(),
       );
+      db.update(plaidAccountMappings)
+        .set(snapshot)
+        .where(eq(plaidAccountMappings.id, mapping.id))
+        .run();
       recordBankBalanceSnapshot({
         mappingId: mapping.id,
         fetchedAt: snapshot.bankBalanceFetchedAt!,
@@ -230,10 +234,6 @@ export async function syncPlaidItem(plaidItemId: string): Promise<SyncResult> {
         available: snapshot.bankAvailableBalance,
         currency: mapping.currency,
       });
-      db.update(plaidAccountMappings)
-        .set(snapshot)
-        .where(eq(plaidAccountMappings.id, mapping.id))
-        .run();
 
       // Keep the existing ledger reconciliation; absent current must not mean zero.
       if (!mapping.accountId || snapshot.bankCurrentBalance === null) continue;
@@ -245,10 +245,6 @@ export async function syncPlaidItem(plaidItemId: string): Promise<SyncResult> {
         .run();
     }
 
-    recordBankSyncEvent({
-      plaidItemId, status: 'good', added: result.added,
-      modified: result.modified, removed: result.removed,
-    });
     db.update(plaidItems)
       .set({
         cursor: syncData.nextCursor,
@@ -259,6 +255,10 @@ export async function syncPlaidItem(plaidItemId: string): Promise<SyncResult> {
       })
       .where(eq(plaidItems.id, plaidItemId))
       .run();
+    recordBankSyncEvent({
+      plaidItemId, status: 'good', added: result.added,
+      modified: result.modified, removed: result.removed,
+    });
   } catch (err: any) {
     logError('Plaid sync failed', err);
     // Plaid's own message is meant for users; anything else may carry internal details
