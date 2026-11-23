@@ -10,6 +10,7 @@ import {
   type PlaidSyncResult,
 } from './plaidService.js';
 import { promotePendingPlaidTransaction } from '../features/pending-transactions/plaidPending.js';
+import { synchronizePlaidSplitChildren } from '../features/pending-transactions/plaidSplitSync.js';
 import { buildRuleContext, insertNewTransaction, loadRules } from './ruleService.js';
 import { currencyContext, refreshMainAmounts } from './mainAmountService.js';
 import { minorUnits } from '../utils/currencies.js';
@@ -181,12 +182,11 @@ export async function syncPlaidItem(plaidItemId: string): Promise<SyncResult> {
           .run();
         // Its value (and a transfer's other side's) follows; a typed-in one stays unless the
         // amount changed
-        // A modified event can change an authorization's pending flag while
-        // retaining its ID. Keep split children in the same status as the parent.
-        db.update(transactions)
-          .set({ pending: tx.pending ? 1 : 0, date: tx.date })
-          .where(eq(transactions.parentTransactionId, existing.id))
-          .run();
+        // Reallocate split children when the modified authorization amount changes.
+        // A linked transfer with a locked counterpart retains its previous amount.
+        synchronizePlaidSplitChildren(
+          existing.id, transfer === 'locked' ? existing.amount : amount, tx.date, tx.pending,
+        );
         refreshMainAmounts([existing.id], { keepManual: amount === existing.amount });
       });
 
