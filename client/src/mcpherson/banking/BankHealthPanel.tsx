@@ -48,6 +48,9 @@ export function BankHealthPanel() {
       </div>
       <p className="text-xs text-text-tertiary">This report is read-only. Freshness is based on FlyBudget retrieval time, not a verified bank refresh. Refreshing the report does not sync Plaid.</p>
       {error && <p role="alert" className="text-xs text-negative">{error}</p>}
+      {diagnostics?.alerts.map((alert, index) => (
+        <p key={`${alert.itemId}-${alert.code}-${index}`} className="text-xs text-text-secondary" role="status">{alert.severity === 'critical' ? 'Action needed' : 'Attention'}: {alert.message}</p>
+      ))}
       {diagnostics && diagnostics.institutions.length === 0 && <p className="text-xs text-text-secondary">No Plaid institutions connected.</p>}
       {history && history.events.length > 0 && (
         <p className="text-xs text-text-secondary">Recent Plaid sync attempts: {history.events.length} (latest: {showTime(history.events[0].occurredAt)} · {history.events[0].status}).</p>
