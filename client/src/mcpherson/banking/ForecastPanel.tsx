@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { formatMoney } from '../../utils/currency';
+import { minorUnits } from '../../utils/currencies';
 import { getAccountForecast, type AccountForecastResponse } from './api';
 
 /** Read-only preview. A forecast is not a bank-verified spendable balance. */
@@ -11,14 +12,15 @@ export function ForecastPanel({ accountId, accountName }: { accountId: string; a
   const [error, setError] = useState<string | null>(null);
   async function preview() {
     const amount = Number(reserve);
-    if (!Number.isFinite(amount) || amount < 0 || !Number.isSafeInteger(Math.round(amount * 100))) {
+    const multiplier = 10 ** minorUnits(result?.currency ?? null);
+    if (!Number.isFinite(amount) || amount < 0 || !Number.isSafeInteger(Math.round(amount * multiplier))) {
       setError('Enter a valid nonnegative reserve amount.');
       return;
     }
     setLoading(true);
     setError(null);
     setResult(null);
-    try { setResult(await getAccountForecast(accountId, days, Math.round(amount * 100))); }
+    try { setResult(await getAccountForecast(accountId, days, Math.round(amount * multiplier))); }
     catch (err) { setError(err instanceof Error ? err.message : 'Forecast unavailable'); }
     finally { setLoading(false); }
   }
