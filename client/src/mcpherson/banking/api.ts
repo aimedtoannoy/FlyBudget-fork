@@ -65,7 +65,9 @@ export interface AccountForecastResponse {
   currency: string | null;
   bankBalanceFetchedAt: string | null;
   scheduledOccurrenceCount: number;
-  forecastCoverage: 'materialized_occurrences_only';
+  forecastCoverage: 'projected_recurring_schedules';
+  projectedOccurrenceCount: number;
+  uncertainSchedules: string[];
   hasScheduledEvents: boolean;
   startingBalance: number;
   startingSource: 'bank_available' | 'ledger_pending';
