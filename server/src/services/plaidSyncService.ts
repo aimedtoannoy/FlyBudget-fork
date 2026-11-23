@@ -17,7 +17,8 @@ import { accountPostedTransactionSum } from './balances.js';
 import { deleteTransactionRow } from './transactionHelpers.js';
 import { syncedTransferChange } from './transferService.js';
 import { recordBankSyncEvent, recordBankBalanceSnapshot } from '../mcpherson/banking/history.js';
-import { reconciliationMode, shouldAutoAlignStartingBalance } from '../mcpherson/banking/reconciliationMode.js';
+import { reconciliationMode } from '../mcpherson/banking/reconciliationMode.js';
+import { canAutoAlignPlaidAccount } from '../mcpherson/banking/reconciliationSafety.js';
 
 export interface SyncResult {
   itemId: string;
@@ -236,9 +237,18 @@ export async function syncPlaidItem(plaidItemId: string): Promise<SyncResult> {
         currency: mapping.currency,
       });
 
-      // Keep the existing ledger reconciliation; absent current must not mean zero.
-      if (!mapping.accountId || snapshot.bankCurrentBalance === null ||
-        !shouldAutoAlignStartingBalance(reconciliationMode(process.env.MC_BANK_RECONCILIATION_MODE), snapshot.bankCurrentBalance)) continue;
+      // Never align credit or mismatched-currency ledgers to a bank cash balance.
+      const linkedAccount = mapping.accountId
+        ? db.select({ type: accounts.type, currency: accounts.currency }).from(accounts)
+          .where(eq(accounts.id, mapping.accountId)).get()
+        : null;
+      if (!mapping.accountId || !linkedAccount || !canAutoAlignPlaidAccount({
+        mode: reconciliationMode(process.env.MC_BANK_RECONCILIATION_MODE),
+        bankCurrent: snapshot.bankCurrentBalance,
+        accountType: linkedAccount.type,
+        accountCurrency: linkedAccount.currency,
+        mappingCurrency: mapping.currency,
+      })) continue;
       const newStartingBalance =
         snapshot.bankCurrentBalance - accountPostedTransactionSum(mapping.accountId);
       db.update(accounts)
