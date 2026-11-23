@@ -60,9 +60,6 @@ export function BankHealthPanel() {
         {financialAlerts.alerts.length === 0 && <p className="text-xs text-text-secondary">No current alerts.</p>}
         {financialAlerts.alerts.map((alert) => <p key={alert.id} className="text-xs text-text-secondary" role={alert.severity === 'critical' ? 'alert' : 'status'}>{alert.severity === 'critical' ? 'Urgent' : alert.severity === 'warning' ? 'Review' : 'Upcoming'}: {alert.message}</p>)}
       </div>}
-      {false && diagnostics?.alerts.map((alert, index) => (
-        <p key={`${alert.itemId}-${alert.code}-${index}`} className="text-xs text-text-secondary" role="status">{alert.severity === 'critical' ? 'Action needed' : 'Attention'}: {alert.message}</p>
-      ))}
       {diagnostics && diagnostics.institutions.length === 0 && <p className="text-xs text-text-secondary">No Plaid institutions connected.</p>}
       {history && history.events.length > 0 && (
         <p className="text-xs text-text-secondary">Recent Plaid sync attempts: {history.events.length} (latest: {showTime(history.events[0].occurredAt)} · {history.events[0].status}).</p>
