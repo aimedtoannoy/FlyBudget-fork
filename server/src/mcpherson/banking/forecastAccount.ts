@@ -52,6 +52,8 @@ export function forecastAccount(accountId: string, days: 7 | 14 | 30, reserve: n
     accountId, accountName: account.name, currency: account.currency,
     bankBalanceFetchedAt: mapping?.fetchedAt ?? null,
     scheduledOccurrenceCount: events.length,
+    forecastCoverage: 'materialized_occurrences_only' as const,
+    hasScheduledEvents: events.length > 0,
     ...result,
     caveats: [
       'Only existing pending schedule occurrences are included. Missing future occurrences and unscheduled bills are not estimated.',
