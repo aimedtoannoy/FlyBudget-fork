@@ -196,7 +196,7 @@ mcphersonBankingRouter.put('/alert-preferences', (req, res) => {
 });
 mcphersonBankingRouter.post('/alert-acknowledgements', (req, res) => {
   const id = req.body?.id;
-  if (typeof id !== 'string' || id.length > 256 || !/^[a-zA-Z0-9:_-]+$/.test(id)) return res.status(400).json({ error: 'Invalid alert ID' });
+  if (typeof id !== 'string' || id.length > 256 || /[\u0000-\u001f]/.test(id)) return res.status(400).json({ error: 'Invalid alert ID' });
   const existing = db.select().from(mcAlertDeliveryState).where(eq(mcAlertDeliveryState.alertId, id)).get();
   if (!existing) return res.status(404).json({ error: 'Alert not delivered' });
   db.update(mcAlertDeliveryState).set({ acknowledgedAt: new Date().toISOString() }).where(eq(mcAlertDeliveryState.alertId, id)).run();
