@@ -17,6 +17,7 @@ import { accountPostedTransactionSum } from './balances.js';
 import { deleteTransactionRow } from './transactionHelpers.js';
 import { syncedTransferChange } from './transferService.js';
 import { recordBankSyncEvent, recordBankBalanceSnapshot } from '../mcpherson/banking/history.js';
+import { reconciliationMode, shouldAutoAlignStartingBalance } from '../mcpherson/banking/reconciliationMode.js';
 
 export interface SyncResult {
   itemId: string;
@@ -236,7 +237,7 @@ export async function syncPlaidItem(plaidItemId: string): Promise<SyncResult> {
       });
 
       // Keep the existing ledger reconciliation; absent current must not mean zero.
-      if (!mapping.accountId || snapshot.bankCurrentBalance === null) continue;
+      if (!mapping.accountId || !shouldAutoAlignStartingBalance(reconciliationMode(process.env.MC_BANK_RECONCILIATION_MODE), snapshot.bankCurrentBalance)) continue;
       const newStartingBalance =
         snapshot.bankCurrentBalance - accountPostedTransactionSum(mapping.accountId);
       db.update(accounts)
