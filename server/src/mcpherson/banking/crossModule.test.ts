@@ -45,7 +45,7 @@ describe('cross-module financial consistency', () => {
     expect(forecast.safeToSpendNow).toBe(0);
     const reconcile = (current: number) => inspectReconciliation({ accountId: id, currency: 'USD', bankCurrency: 'USD', startingBalance: 100000, postedTransactionSum: ledger().posted, pendingTransactionSum: ledger().total - ledger().posted, bankCurrentBalance: current, bankAvailableBalance: 65000, bankBalanceFetchedAt: new Date(now).toISOString() });
     expect(reconcile(75000)).toMatchObject({ state: 'matched', pendingInclusiveLedgerBalance: 65000 });
-    const alerts = prioritizeAlerts([...forecastAlertCandidates({ accountId: id, accountName: 'Fixture cash', available: forecast.startingBalance, ...forecast }), ...reconciliationAlertCandidates([reconcile(75000)])]);
+    const alerts = prioritizeAlerts([...forecastAlertCandidates({ ...forecast, available: forecast.startingBalance }), ...reconciliationAlertCandidates([reconcile(75000)])]);
     expect(alerts.map(alert => alert.code)).toEqual(['PROJECTED_OVERDRAFT', 'LOW_SAFE_TO_SPEND', 'UPCOMING_BILLS']);
     db.insert(s.mcAlertPreferences).values({ id: 'default', enabled: 1 }).run();
     expect(refreshAlertInbox(db, alerts, now).alerts.map(alert => alert.code)).toEqual(['PROJECTED_OVERDRAFT', 'LOW_SAFE_TO_SPEND']);
