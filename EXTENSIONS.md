@@ -64,11 +64,11 @@ The read-only cash-flow endpoint now projects active recurrence rules (once, wee
 
 
 ### Phase 6: Financial alert preview
-The authenticated read-only endpoint `GET /mcpherson/banking/alerts` produces deterministic, deduplicated, severity-ranked candidates for bank reconnect, sync staleness/errors, reconciliation discrepancies, 14-day scheduled bills, projected overdraft, zero estimated safe-to-spend, and uncertain schedules. The Bank Sync Health panel displays this preview. No email, push, cron, automatic payments, or notification preferences are activated. Alerts reflect retrieval-time data, not verified live bank updates. Validate on staging before enabling outbound delivery.
+The authenticated read-only endpoint `GET /mcpherson/banking/alerts` produces deterministic, deduplicated, severity-ranked candidates for bank reconnect, sync staleness/errors, reconciliation discrepancies, 14-day scheduled bills, projected overdraft, zero estimated safe-to-spend, and uncertain schedules. The Bank Sync Health panel displays this preview. No email, push, cron or automatic payments are activated. Alerts reflect retrieval-time data, not verified live bank updates. Validate on staging before enabling outbound delivery.
 
 
-### Phase 6 delivery safeguards (not yet activated)
-Local alert preferences are disabled by default, with minimum severity and 1–168 hour cooldown. Durable delivery state and an authenticated acknowledgement endpoint are included. The pure delivery policy handles opt-in, severity, acknowledgement, and repeat suppression. The user interface saves preferences, but no background scheduler, push, email, or in-app delivery activation is implemented yet. Never treat this as an active notification system.
+### Phase 6 delivery safeguards
+Local alert preferences are disabled by default, with minimum severity and 1–168 hour cooldown. Durable delivery state and an authenticated acknowledgement endpoint are included. The pure delivery policy handles opt-in, severity, acknowledgement, and repeat suppression. The user interface saves preferences and supports on-demand in-app delivery as described below. No background scheduler, push or email is implemented.
 
 
 ### Phase 6: on-demand in-app delivery

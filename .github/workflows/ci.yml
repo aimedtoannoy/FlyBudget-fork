@@ -117,6 +117,7 @@ jobs:
             server/src/mcpherson/banking/inboxStore.ts \
             server/src/mcpherson/banking/inboxStore.test.ts \
             server/src/mcpherson/banking/upgradeRehearsal.test.ts \
+            server/src/mcpherson/banking/crossModule.test.ts \
             docs/customizations/phase-7-release.md \
             server/src/services/plaidService.ts \
             server/src/services/plaidSyncService.ts \
