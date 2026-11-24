@@ -73,3 +73,5 @@ Local alert preferences are disabled by default, with minimum severity and 1–1
 
 ### Phase 6: on-demand in-app delivery
 The authenticated POST /mcpherson/banking/alert-inbox recomputes alerts on the server, then atomically applies opt-in, severity and cooldown rules to durable delivery state. Acknowledgements persist across reloads. Resolved alert IDs are purged so a later recurrence can alert again. The Bank Sync Health screen refreshes the inbox on load or manual refresh and supports acknowledgement. No external push/email, background job, payment, or Plaid sync is initiated by the inbox. This is an on-demand in-app notification system, not an unattended monitor. Validate against a staging database before production.
+
+Phase 6 validation adds a migrated, isolated SQLite lifecycle regression test using the production inbox store. It covers opt-in, repeat cooldown, severity changes, acknowledgement, resolution and recurrence without live bank data. Live staging remains separate.

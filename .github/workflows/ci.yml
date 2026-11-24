@@ -114,6 +114,8 @@ jobs:
             server/src/mcpherson/banking/alerts.test.ts \
             server/src/mcpherson/banking/delivery.ts \
             server/src/mcpherson/banking/delivery.test.ts \
+            server/src/mcpherson/banking/inboxStore.ts \
+            server/src/mcpherson/banking/inboxStore.test.ts \
             server/src/services/plaidService.ts \
             server/src/services/plaidSyncService.ts \
             server/src/services/plaidSyncService.test.ts \
