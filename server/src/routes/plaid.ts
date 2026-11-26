@@ -166,6 +166,7 @@ async function addPlaidItem(publicToken: string, institution: { id: string; name
       subtype: a.subtype,
       mask: a.mask,
       suggestedType: mapPlaidAccountType(a.type, a.subtype),
+      currency: bankCurrency(a.currency),
       // In the bank account's own decimals, like syncs (none for yen)
       currentBalance:
         a.currentBalance === null

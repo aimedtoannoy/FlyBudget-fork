@@ -10,12 +10,16 @@ import {
   type PlaidSyncResult,
 } from './plaidService.js';
 import { promotePendingPlaidTransaction } from '../features/pending-transactions/plaidPending.js';
+import { synchronizePlaidSplitChildren } from '../features/pending-transactions/plaidSplitSync.js';
 import { buildRuleContext, insertNewTransaction, loadRules } from './ruleService.js';
 import { currencyContext, refreshMainAmounts } from './mainAmountService.js';
 import { minorUnits } from '../utils/currencies.js';
 import { accountPostedTransactionSum } from './balances.js';
 import { deleteTransactionRow } from './transactionHelpers.js';
 import { syncedTransferChange } from './transferService.js';
+import { recordBankSyncEvent, recordBankBalanceSnapshot } from '../mcpherson/banking/history.js';
+import { reconciliationMode } from '../mcpherson/banking/reconciliationMode.js';
+import { canAutoAlignPlaidAccount } from '../mcpherson/banking/reconciliationSafety.js';
 
 export interface SyncResult {
   itemId: string;
@@ -114,6 +118,12 @@ export async function syncPlaidItem(plaidItemId: string): Promise<SyncResult> {
       result.added++;
     };
 
+    // Do not resurrect stale authorizations from a lagging pending backfill.
+    const supersededPendingIds = new Set(syncData.added.flatMap((tx) =>
+      !tx.pending && tx.pendingTransactionId ? [tx.pendingTransactionId] : [],
+    ));
+    const removedPlaidIds = new Set(syncData.removed.map((tx) => tx.transactionId));
+
     // Backfill the pending authorizations that older FlyBudget builds silently skipped
     // BEFORE applying new posted events. Otherwise a newly booked charge could be
     // inserted before its matching authorization is recovered, creating a duplicate.
@@ -121,7 +131,10 @@ export async function syncPlaidItem(plaidItemId: string): Promise<SyncResult> {
     if (!pendingBackfilled) {
       try {
         const missed = await getCurrentPendingTransactions(item.accessToken);
-        for (const tx of missed) importAdded(tx);
+        for (const tx of missed) {
+          if (supersededPendingIds.has(tx.transactionId) || removedPlaidIds.has(tx.transactionId)) continue;
+          importAdded(tx);
+        }
         pendingBackfilled = true;
       } catch (err) {
         logError('Plaid pending-transaction backfill failed; will retry', err);
@@ -178,12 +191,11 @@ export async function syncPlaidItem(plaidItemId: string): Promise<SyncResult> {
           .run();
         // Its value (and a transfer's other side's) follows; a typed-in one stays unless the
         // amount changed
-        // A modified event can change an authorization's pending flag while
-        // retaining its ID. Keep split children in the same status as the parent.
-        db.update(transactions)
-          .set({ pending: tx.pending ? 1 : 0, date: tx.date })
-          .where(eq(transactions.parentTransactionId, existing.id))
-          .run();
+        // Reallocate split children when the modified authorization amount changes.
+        // A linked transfer with a locked counterpart retains its previous amount.
+        synchronizePlaidSplitChildren(
+          existing.id, transfer === 'locked' ? existing.amount : amount, tx.date, tx.pending,
+        );
         refreshMainAmounts([existing.id], { keepManual: amount === existing.amount });
       });
 
@@ -226,11 +238,28 @@ export async function syncPlaidItem(plaidItemId: string): Promise<SyncResult> {
         .set(snapshot)
         .where(eq(plaidAccountMappings.id, mapping.id))
         .run();
+      recordBankBalanceSnapshot({
+        mappingId: mapping.id,
+        fetchedAt: snapshot.bankBalanceFetchedAt!,
+        current: snapshot.bankCurrentBalance,
+        available: snapshot.bankAvailableBalance,
+        currency: mapping.currency,
+      });
 
-      // Keep the existing ledger reconciliation; absent current must not mean zero.
-      if (!mapping.accountId || snapshot.bankCurrentBalance === null) continue;
+      // Never align credit or mismatched-currency ledgers to a bank cash balance.
+      const linkedAccount = mapping.accountId
+        ? db.select({ type: accounts.type, currency: accounts.currency }).from(accounts)
+          .where(eq(accounts.id, mapping.accountId)).get()
+        : null;
+      if (!mapping.accountId || !linkedAccount || !canAutoAlignPlaidAccount({
+        mode: reconciliationMode(process.env.MC_BANK_RECONCILIATION_MODE),
+        bankCurrent: snapshot.bankCurrentBalance,
+        accountType: linkedAccount.type,
+        accountCurrency: linkedAccount.currency,
+        mappingCurrency: mapping.currency,
+      })) continue;
       const newStartingBalance =
-        snapshot.bankCurrentBalance - accountPostedTransactionSum(mapping.accountId);
+        snapshot.bankCurrentBalance! - accountPostedTransactionSum(mapping.accountId);
       db.update(accounts)
         .set({ startingBalance: newStartingBalance })
         .where(eq(accounts.id, mapping.accountId))
@@ -247,6 +276,10 @@ export async function syncPlaidItem(plaidItemId: string): Promise<SyncResult> {
       })
       .where(eq(plaidItems.id, plaidItemId))
       .run();
+    recordBankSyncEvent({
+      plaidItemId, status: 'good', added: result.added,
+      modified: result.modified, removed: result.removed,
+    });
   } catch (err: any) {
     logError('Plaid sync failed', err);
     // Plaid's own message is meant for users; anything else may carry internal details
@@ -263,6 +296,11 @@ export async function syncPlaidItem(plaidItemId: string): Promise<SyncResult> {
       .where(eq(plaidItems.id, plaidItemId))
       .run();
 
+    recordBankSyncEvent({
+      plaidItemId, status: syncStatus, added: result.added,
+      modified: result.modified, removed: result.removed,
+      errorCode,
+    });
     result.errors.push(errorMessage);
   }
 

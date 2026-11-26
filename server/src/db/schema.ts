@@ -411,6 +411,27 @@ export const plaidAccountMappings = sqliteTable(
   ],
 );
 
+// McPherson extension-owned append-only Plaid sync history.
+export const mcBankSyncEvents = sqliteTable('mc_bank_sync_events', {
+  id: text('id').primaryKey(),
+  plaidItemId: text('plaid_item_id').notNull().references(() => plaidItems.id, { onDelete: 'cascade' }),
+  occurredAt: text('occurred_at').notNull(),
+  status: text('status').notNull(),
+  addedCount: integer('added_count').notNull().default(0),
+  modifiedCount: integer('modified_count').notNull().default(0),
+  removedCount: integer('removed_count').notNull().default(0),
+  errorCode: text('error_code'),
+});
+
+export const mcBankBalanceSnapshots = sqliteTable('mc_bank_balance_snapshots', {
+  id: text('id').primaryKey(),
+  mappingId: text('mapping_id').notNull().references(() => plaidAccountMappings.id, { onDelete: 'cascade' }),
+  fetchedAt: text('fetched_at').notNull(),
+  currentMinor: integer('current_minor'),
+  availableMinor: integer('available_minor'),
+  currency: text('currency'),
+});
+
 // --- Enable Banking (European banks, PSD2) ---
 
 /** The user's own Enable Banking application (single row, id='default'). */
@@ -646,3 +667,15 @@ export const personalLoanCredits = sqliteTable(
   },
   (table) => [index('personal_loan_credits_loan_idx').on(table.loanId)],
 );
+
+export const mcAlertPreferences = sqliteTable('mc_alert_preferences', {
+  id: text('id').primaryKey(),
+  enabled: integer('enabled').notNull().default(0),
+  minimumSeverity: text('minimum_severity').notNull().default('warning'),
+  cooldownHours: integer('cooldown_hours').notNull().default(24),
+});
+export const mcAlertDeliveryState = sqliteTable('mc_alert_delivery_state', {
+  alertId: text('alert_id').primaryKey(),
+  lastShownAt: text('last_shown_at').notNull(),
+  acknowledgedAt: text('acknowledged_at'),
+});

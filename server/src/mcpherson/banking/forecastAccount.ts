@@ -1,0 +1,70 @@
+import { and, eq, gte, lte } from 'drizzle-orm';
+import { db } from '../../db/index.js';
+import { accounts, plaidAccountMappings, scheduleOccurrences, schedules } from '../../db/schema.js';
+import { accountPostedTransactionSum, accountTransactionSum } from '../../services/balances.js';
+import { forecastCashFlow } from './forecast.js';
+import { recentlyRetrievedBankAvailable } from './forecastSources.js';
+import { projectScheduleEvents } from './projectSchedules.js';
+
+const CASH_TYPES = new Set(['checking', 'savings', 'cash']);
+
+/** Read-only forecast of materialized scheduled occurrences, scoped to one cash account. */
+export function forecastAccount(accountId: string, days: 7 | 14 | 30, reserve: number, asOf: string) {
+  const account = db.select().from(accounts).where(eq(accounts.id, accountId)).get();
+  if (!account) return { error: 'Account not found', status: 404 } as const;
+  if (!CASH_TYPES.has(account.type.toLowerCase())) return { error: 'Forecast requires a cash account', status: 422 } as const;
+
+  const through = new Date(Date.parse(asOf + 'T00:00:00Z') + days * 86_400_000).toISOString().slice(0, 10);
+  const activeSchedules = db.select().from(schedules).where(eq(schedules.accountId, accountId)).all();
+  const occurrences = db.select({
+    id: scheduleOccurrences.id,
+    scheduleId: scheduleOccurrences.scheduleId,
+    scheduledDate: scheduleOccurrences.scheduledDate,
+    expectedDate: scheduleOccurrences.expectedDate,
+    expectedAmount: scheduleOccurrences.expectedAmount,
+    status: scheduleOccurrences.status,
+    matchedTransactionId: scheduleOccurrences.matchedTransactionId,
+  }).from(scheduleOccurrences)
+    .innerJoin(schedules, eq(scheduleOccurrences.scheduleId, schedules.id))
+    .where(and(eq(schedules.accountId, accountId), gte(scheduleOccurrences.expectedDate, asOf), lte(scheduleOccurrences.expectedDate, through)))
+    .all();
+  const projection = projectScheduleEvents(activeSchedules, occurrences, asOf, through);
+  const events = projection.events;
+
+  const mapping = db.select({
+    available: plaidAccountMappings.bankAvailableBalance,
+    fetchedAt: plaidAccountMappings.bankBalanceFetchedAt,
+    currency: plaidAccountMappings.currency,
+  }).from(plaidAccountMappings)
+    .where(and(eq(plaidAccountMappings.accountId, accountId), eq(plaidAccountMappings.isEnabled, 1)))
+    .all().sort((a, b) => (b.fetchedAt ?? '').localeCompare(a.fetchedAt ?? ''))[0];
+  // Cached availability must never silently be represented as live bank funds.
+  const freshAvailable = recentlyRetrievedBankAvailable({
+    fetchedAt: mapping?.fetchedAt ?? null,
+    available: mapping?.available ?? null,
+    bankCurrency: mapping?.currency ?? null,
+    accountCurrency: account.currency,
+  }, Date.now());
+  const postedSum = accountPostedTransactionSum(accountId);
+  const posted = account.startingBalance + postedSum;
+  const pending = accountTransactionSum(accountId) - postedSum;
+  const result = forecastCashFlow({
+    asOf, days, accountKind: 'cash', available: freshAvailable ?? null,
+    postedLedger: posted, pendingAmount: pending, reserve, events,
+  });
+  return {
+    accountId, accountName: account.name, currency: account.currency,
+    bankBalanceFetchedAt: mapping?.fetchedAt ?? null,
+    scheduledOccurrenceCount: events.length,
+    forecastCoverage: 'projected_recurring_schedules' as const,
+    projectedOccurrenceCount: projection.projectedCount,
+    uncertainSchedules: projection.uncertain,
+    hasScheduledEvents: events.length > 0,
+    ...result,
+    caveats: [
+      'Active recurring schedules are projected without writing to the database. Unscheduled bills and unrecorded income are not estimated.',
+      'Bank available funds are used only when fetched within 24 hours; retrieval time does not prove bank freshness.',
+      'Transfers are excluded to avoid treating internal transfers as income or spending.',
+    ],
+  };
+}

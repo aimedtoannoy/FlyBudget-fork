@@ -2,6 +2,7 @@ import { Configuration, PlaidApi, PlaidEnvironments, Products, CountryCode } fro
 import { db } from '../db/index.js';
 import { plaidConfig } from '../db/schema.js';
 import type { AccountType } from '../utils/accountTypes.js';
+import { withPlaidRetry } from '../mcpherson/banking/retry.js';
 
 // Plaid investment subtypes that are tax-advantaged retirement accounts
 const RETIREMENT_SUBTYPES = new Set([
@@ -251,10 +252,10 @@ export async function syncTransactions(
   let hasMore = true;
 
   while (hasMore) {
-    const response = await client.transactionsSync({
+    const response = await withPlaidRetry(() => client.transactionsSync({
       access_token: accessToken,
       cursor: nextCursor || undefined,
-    });
+    }));
 
     const data = response.data;
 
@@ -296,7 +297,7 @@ export async function syncTransactions(
 
   let accountBalances: PlaidSyncResult['accountBalances'] = [];
   try {
-    const balResponse = await client.accountsGet({ access_token: accessToken });
+    const balResponse = await withPlaidRetry(() => client.accountsGet({ access_token: accessToken }));
     accountBalances = balResponse.data.accounts.map((a) => ({
       accountId: a.account_id,
       current: a.balances.current ?? null,

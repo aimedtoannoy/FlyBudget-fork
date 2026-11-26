@@ -6,7 +6,8 @@ import { HostedLinkWaiting } from './HostedLinkWaiting';
 import { useMapAccounts, useSyncItem } from '../../hooks/usePlaid';
 import { usePlaidHostedLink } from '../../hooks/usePlaidHostedLink';
 import { useAccounts } from '../../hooks/useAccounts';
-import { formatCurrency, formatMoney } from '../../utils/currency';
+import { formatMoney } from '../../utils/currency';
+import { formatDiscoveredBalance } from '../../mcpherson/banking/formatDiscoveredBalance';
 import type {
   PlaidDiscoveredAccount,
   PlaidExchangeResult,
@@ -252,17 +253,9 @@ function AccountMappingCard({
           )}
         </div>
         <span className="text-right text-xs tabular-nums text-text-secondary">
-          <span className="block">
-            Bank:{' '}
-            {account.currentBalance === null
-              ? 'Not provided'
-              : formatCurrency(account.currentBalance)}
-          </span>
+          <span className="block">Bank: {formatDiscoveredBalance(account.currentBalance, account.currency)}</span>
           <span className="block text-text-tertiary">
-            Available:{' '}
-            {account.availableBalance === null
-              ? 'Not provided'
-              : formatCurrency(account.availableBalance)}
+            Available: {formatDiscoveredBalance(account.availableBalance, account.currency)}
           </span>
         </span>
       </div>

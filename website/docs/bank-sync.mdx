@@ -145,7 +145,10 @@ banks end the access for all your connections to them at once, which would stop 
   (for Enable Banking, at most every 6 hours on start; see above).
 - Your [rules](./rules) run on every imported transaction.
 - Reconciled transactions are never changed by a sync.
-- Account balances are adjusted to match what your bank reports.
+- Plaid accounts display **Bank balance** (reported current) and **Available** (reported available funds or credit) separately from FlyBudget's transaction-based ledger balance. See [Understanding bank balances](./accounts#understanding-bank-balances).
+- Plaid's balance figures can be cached and are not necessarily synchronized to the exact same moment as imported transactions. **Fetched from Plaid** indicates retrieval time, not the bank's last refresh time.
+- Pending authorizations can appear in FlyBudget before they post; banks differ in whether and how those holds affect current and available balances. A missing bank balance is shown as **Not provided** rather than zero.
+- The current Plaid synchronization logic can adjust the ledger starting balance to align posted activity with the reported bank current balance; investigate differences before making manual reconciliation adjustments.
 
 ## Your credentials
 

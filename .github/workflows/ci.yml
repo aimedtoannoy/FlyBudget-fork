@@ -77,6 +77,55 @@ jobs:
       - name: Normalize custom feature formatting and verify
         run: |
           npx prettier --write \
+            EXTENSIONS.md \
+            client/src/mcpherson/banking/formatDiscoveredBalance.ts \
+            client/src/mcpherson/banking/formatDiscoveredBalance.test.ts \
+            client/src/mcpherson/banking/api.ts \
+            client/src/mcpherson/banking/BankHealthPanel.tsx \
+            client/src/mcpherson/banking/ForecastPanel.tsx \
+            client/src/components/settings/ConnectedAccounts.tsx \
+            client/src/components/plaid/ConnectBankModal.tsx \
+            server/src/mcpherson/banking/contracts.ts \
+            server/src/mcpherson/banking/freshness.ts \
+            server/src/mcpherson/banking/freshness.test.ts \
+            server/src/mcpherson/banking/diagnostics.ts \
+            server/src/mcpherson/banking/diagnostics.test.ts \
+            server/src/mcpherson/banking/router.ts \
+            server/src/mcpherson/banking/reconciliation.ts \
+            server/src/mcpherson/banking/reconciliation.test.ts \
+            server/src/mcpherson/banking/history.ts \
+            server/src/mcpherson/banking/retry.ts \
+            server/src/mcpherson/banking/retry.test.ts \
+            server/src/mcpherson/banking/reconciliationMode.ts \
+            server/src/mcpherson/banking/reconciliationMode.test.ts \
+            server/src/mcpherson/banking/reconciliationSafety.ts \
+            server/src/mcpherson/banking/reconciliationSafety.test.ts \
+            server/src/features/pending-transactions/plaidSplitSync.ts \
+            server/src/features/pending-transactions/plaidSplitSync.test.ts \
+            server/src/features/pending-transactions/plaidLifecycle.test.ts \
+            server/src/mcpherson/banking/forecast.ts \
+            server/src/mcpherson/banking/forecastAccount.ts \
+            server/src/mcpherson/banking/forecastSources.ts \
+            server/src/mcpherson/banking/forecastSources.test.ts \
+            server/src/mcpherson/banking/projectSchedules.ts \
+            server/src/mcpherson/banking/projectSchedules.test.ts \
+            server/src/mcpherson/banking/forecast.test.ts \
+            server/src/mcpherson/banking/alerts.ts \
+            server/src/mcpherson/banking/alerts.test.ts \
+            server/src/mcpherson/banking/delivery.ts \
+            server/src/mcpherson/banking/delivery.test.ts \
+            server/src/mcpherson/banking/inboxStore.ts \
+            server/src/mcpherson/banking/inboxStore.test.ts \
+            server/src/mcpherson/banking/upgradeRehearsal.test.ts \
+            server/src/mcpherson/banking/crossModule.test.ts \
+            docs/customizations/phase-7-release.md \
+            server/src/services/plaidService.ts \
+            server/src/services/plaidSyncService.ts \
+            server/src/services/plaidSyncService.test.ts \
+            server/src/db/schema.ts \
+            server/src/db/migrations/meta/_journal.json \
+            website/docs/accounts.mdx \
+            website/docs/bank-sync.mdx \
             client/src/components/accounts/BankBalances.tsx \
             client/src/components/accounts/BankBalances.test.tsx \
             client/src/App.tsx \

@@ -54,6 +54,19 @@ Money in **on-budget** accounts is money you plan with: its income counts toward
 their transactions stay out of the budget. Change it for any account with the **Off budget**
 box in its **Edit** dialog.
 
+## Understanding bank balances
+
+When a Plaid account is connected, FlyBudget can show multiple balances. They are **not interchangeable**:
+
+- **Account/ledger balance** is calculated from the account's starting balance and its recorded transactions. It may include pending transactions.
+- **Bank balance** is Plaid's reported current balance. It generally represents booked activity, but bank-specific reporting and caching vary.
+- **Available** is the amount Plaid reports as available. It can reflect holds, overdraft arrangements, or bank rules, and can be greater or smaller than current. For credit accounts it is labeled **Available credit**.
+- **Fetched from Plaid** is when FlyBudget retrieved the snapshot, **not** a verified timestamp of the bank's last update.
+
+A missing bank figure appears as **Not provided**, not zero. Balances are displayed in the bank account's own currency. Pending authorizations, transactions not yet imported, bank processing delays, and cached data can cause differences. Never assume available balance alone is safe-to-spend money: upcoming bills and unrecorded charges matter too.
+
+The current Plaid sync implementation may adjust the ledger's starting balance against Plaid current balance. A future fork extension will make that reconciliation more transparent; until then, investigate discrepancies against the bank statement before manually adjusting transactions.
+
 ## An account's register
 
 Click an account to open its register: its balance, type and every transaction in it. From the

@@ -20,6 +20,7 @@ import { Button } from '../ui/Button';
 import type { SimplefinSetupResult } from '../../types';
 import { IS_DEMO } from '../../demo/demoApi';
 import { NotInDemo } from '../demo/NotInDemo';
+import { BankHealthPanel } from '../../mcpherson/banking/BankHealthPanel';
 
 type Provider = 'plaid' | 'simplefin' | 'enablebanking';
 
@@ -131,6 +132,7 @@ function ConnectedAccountsSettings() {
       {/* Plaid content */}
       {provider === 'plaid' && (
         <div className="space-y-4">
+          {items.length > 0 && <BankHealthPanel />}
           {syncAll.isSuccess && syncAll.data && (
             <div className="bg-positive-subtle border border-positive/10 rounded-md px-4 py-2">
               <p className="text-xs text-positive">
